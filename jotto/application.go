@@ -21,6 +21,7 @@ type Application interface {
 	Boot() error
 	Run() error
 	Execute(*Processor, *Context)
+	Protocol() string
 }
 
 const (
@@ -59,6 +60,10 @@ func NewApplication(protocol string, address string, routes map[Route]*Processor
 	}
 
 	return app
+}
+
+func (app *BaseApplication) Protocol() string {
+	return app.protocol
 }
 
 func (app *BaseApplication) On(event Event, listener Listener) {
@@ -136,8 +141,18 @@ func (app *BaseApplication) Run() (err error) {
 }
 
 func (app *BaseApplication) Execute(processor *Processor, ctx *Context) {
-	// TODO: add middleware
-	ExecuteProcessor(processor, ctx, processor.Middlewares)
+	app.ExecuteProcessor(processor, ctx, processor.Middlewares)
+}
+
+func (app *BaseApplication) ExecuteProcessor(processor *Processor, ctx *Context, mids []Middleware) (err error) {
+	if len(mids) == 0 {
+		processor.Handler(app, ctx)
+		return
+	}
+
+	return mids[0](app, ctx, func(c *Context) error {
+		return app.ExecuteProcessor(processor, c, mids[1:])
+	})
 }
 
 func (app *BaseApplication) tcpWorker(connection net.Conn) {

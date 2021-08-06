@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/caser789/jotto/example/processors"
@@ -9,6 +10,13 @@ import (
 )
 
 var r = jotto.NewRoute
+
+func Logging(ctx *motto.Context, next func(*motto.Context) error) (err error) {
+	fmt.Println(ctx.Request)
+	err = next(ctx)
+	fmt.Println(ctx.Reply)
+	return
+}
 
 func RequestId(ctx *jotto.Context, next func(*jotto.Context) error) (err error) {
 	msg := reflect.ValueOf(ctx.Message)
@@ -23,15 +31,13 @@ func RequestId(ctx *jotto.Context, next func(*jotto.Context) error) (err error) 
 }
 
 func Tag(ctx *jotto.Context, next func(*jotto.Context) error) (err error) {
-
-	next(ctx)
-
 	ctx.ResponseWritter.Header().Set("X-UPPER-ID", "Upper - Powered by Jotto")
 
-	return
+	return next(ctx)
 }
 
 var web = []jotto.Middleware{
+	Logging,
 	RequestId,
 	Tag,
 }

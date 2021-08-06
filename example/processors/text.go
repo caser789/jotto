@@ -2,6 +2,7 @@ package processors
 
 import (
 	"strings"
+	"time"
 
 	pb "github.com/caser789/jotto/example/protocol"
 	"github.com/caser789/jotto/jotto"
@@ -10,6 +11,8 @@ import (
 
 func Text(app motto.Application, context motto.Context) {
 	ctx := context.Motto()
+
+	ctx.Logger.Debug("debug message from processor, time: %v", time.Now())
 
 	message := ctx.Message.(*pb.ReqText)
 	reply := ctx.Reply.(*pb.RespText)

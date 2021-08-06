@@ -58,7 +58,7 @@ func NewApplication(settings MottoSettings, routes map[Route]Processor) Applicat
 		registry:       make(map[string]interface{}),
 		settings:       settings,
 		contextFactory: func(p Processor, c *BaseContext) Context { return c },
-		loggerFactory:  func(c LoggerContext) Logger { return NewStdoutLogger(c) },
+		loggerFactory:  func(a Application, c LoggerContext) Logger { return NewStdoutLogger(c) },
 	}
 
 	return app
@@ -110,7 +110,7 @@ func (app *BaseApplication) SetLoggerFactory(factory LoggerFactory) {
 }
 
 func (app *BaseApplication) MakeLogger(c LoggerContext) Logger {
-	return app.loggerFactory(c)
+	return app.loggerFactory(app, c)
 }
 
 func (app *BaseApplication) Boot() (err error) {

@@ -142,7 +142,7 @@ func (r *TcpRunner) worker(connection net.Conn) {
 			"trace_id": GenerateTraceID(),
 		})
 
-		logger.Debug("Logger created")
+		logger.Trace("Logger created")
 
 		kind, input, err := line.Read()
 

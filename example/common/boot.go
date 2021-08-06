@@ -11,7 +11,7 @@ import (
 func Boot(app interface{}) {
 	goorm.Pls_Go_Get_Orm_Lib_V2_40()
 	goorm.RegisterLogFunction(func(format string, v ...interface{}) {
-		fmt.Printf(format, v...)
+		fmt.Printf(format+"\n", v...)
 	}, false)
 
 	mi := goorm.RegisterModel(&pb.Quote{})

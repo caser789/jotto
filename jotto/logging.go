@@ -42,7 +42,7 @@ func (lc *LoggerContext) String() string {
 }
 
 // LoggerFactory creates a Logger given a LoggerContext.
-type LoggerFactory func(LoggerContext) Logger
+type LoggerFactory func(Application, LoggerContext) Logger
 
 // GenerateTraceID generates a unique trace id for log entries within a request cycle.
 func GenerateTraceID() string {
@@ -85,7 +85,7 @@ func (l *StdoutLogger) Fatal(format string, v ...interface{}) {
 
 func (l *StdoutLogger) log(level, format string, v ...interface{}) {
 
-	values := make([]interface{}, len(l.context)+len(v)+1)
+	values := make([]interface{}, len(v)+2)
 
 	values[0] = level
 	values[1] = l.context.String()

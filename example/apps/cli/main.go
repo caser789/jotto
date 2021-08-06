@@ -18,7 +18,6 @@ func main() {
 
 	var recipe string
 	flag.StringVar(&recipe, "recipe", "conf/conf.xml", "The configuration file")
-	flag.Parse()
 
 	cfg := common.LoadCfg("conf/conf.xml")
 	app := motto.NewApplication(cfg, routes.Routes)

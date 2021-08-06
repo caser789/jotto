@@ -8,10 +8,13 @@ import (
 	"git.garena.com/lixh/goorm"
 )
 
-func Boot(app interface{}) {
+func Boot(application interface{}) {
+	app := application.(motto.Application)
+
+	logger := app.MakeLogger(nil)
 	goorm.Pls_Go_Get_Orm_Lib_V2_40()
 	goorm.RegisterLogFunction(func(format string, v ...interface{}) {
-		fmt.Printf(format+"\n", v...)
+		logger.Debug(format, v...)
 	}, false)
 
 	mi := goorm.RegisterModel(&pb.Quote{})

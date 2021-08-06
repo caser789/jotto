@@ -1,6 +1,7 @@
 package motto
 
-type MottoSettings interface {
+// CoreSettings is an interface that application's custom settings struct must conform to.
+type CoreSettings interface {
 	Motto() *Settings
 }
 

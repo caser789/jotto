@@ -17,11 +17,13 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
+// Runner defines the logic of how an application should be run.
 type Runner interface {
 	Attach(app Application) error
 	Run() error
 }
 
+// NewRunner creates a Runner according to the given `protocol`.
 func NewRunner(protocol string) (runner Runner) {
 	switch protocol {
 	case HTTP:
@@ -39,19 +41,23 @@ func NewRunner(protocol string) (runner Runner) {
 	return nil
 }
 
+// HttpHandler is a HTTP handler used in the net.http package.
 type HttpHandler func(http.ResponseWriter, *http.Request)
 
+// HttpRunner is the built-in HTTP runner of Motto
 type HttpRunner struct {
 	app    Application
 	router *mux.Router
 }
 
+// Run runs the application in HTTP mode
 func (r *HttpRunner) Run() error {
 	fmt.Printf("Running %s server at %s\n", r.app.Protocol(), r.app.Address())
 	http.Handle("/", r.router)
 	return http.ListenAndServe(r.app.Address(), nil)
 }
 
+// Attach binds the appliation to the runner and initializes the HTTP router.
 func (r *HttpRunner) Attach(app Application) (err error) {
 	r.app = app
 
@@ -63,36 +69,58 @@ func (r *HttpRunner) Attach(app Application) (err error) {
 	return
 }
 
-func (runner *HttpRunner) handler(processor Processor, app Application) HttpHandler {
+func (r *HttpRunner) handler(processor Processor, app Application) HttpHandler {
 
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		logger := app.MakeLogger(map[string]interface{}{
+			"trace_id": GenerateTraceID(),
+		})
+
 		ctx := &BaseContext{
 			Message:         proto.Clone(processor.Message()),
 			Reply:           proto.Clone(processor.Reply()),
-			Request:         r,
-			ResponseWritter: w,
+			Request:         request,
+			ResponseWritter: writer,
+			Logger:          logger,
 		}
 
 		context := app.MakeContext(processor, ctx)
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, err := ioutil.ReadAll(request.Body)
 
-		json.Unmarshal(body, &ctx.Message)
+		if err != nil {
+			logger.Error("Failed to read request body")
+			app.Fire(PanicEvent, ctx)
+		}
+
+		err = json.Unmarshal(body, &ctx.Message)
+
+		if err != nil {
+			logger.Error("Failed to unmarshal incoming message. (body=%s)", body)
+			app.Fire(PanicEvent, ctx)
+		}
 
 		app.Execute(processor, context)
 
-		resp, _ := json.Marshal(ctx.Reply)
+		resp, err := json.Marshal(ctx.Reply)
 
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(resp)
+		if err != nil {
+			logger.Error("Failed to marshal outgoing message. (reply=%v)", ctx.Reply)
+			app.Fire(PanicEvent, ctx)
+		}
+
+		writer.Header().Set("Content-Type", "application/json")
+		writer.Write(resp)
 	}
 }
 
+// TcpRunner is the built-in TCP runner of Motto
 type TcpRunner struct {
 	app    Application
 	routes map[uint32]Processor
 }
 
+// Attach binds the application to the runner and initializes the TCP router
 func (r *TcpRunner) Attach(app Application) (err error) {
 	r.app = app
 
@@ -104,12 +132,15 @@ func (r *TcpRunner) Attach(app Application) (err error) {
 	return
 }
 
+// Run starts the TCP server and serves incoming requests
 func (r *TcpRunner) Run() (err error) {
-	fmt.Printf("Running %s server at %s\n", r.app.Protocol(), r.app.Address())
+	logger := r.app.MakeLogger(nil)
+	logger.Debug("Running %s server at %s", r.app.Protocol(), r.app.Address())
 
 	listener, err := net.Listen("tcp", r.app.Address())
 
 	if err != nil {
+		logger.Fatal("Failed to listen on (%s//%s). (error=%v)", r.app.Protocol(), r.app.Address(), err)
 		return
 	}
 
@@ -119,7 +150,7 @@ func (r *TcpRunner) Run() (err error) {
 		connection, err := listener.Accept()
 
 		if err != nil {
-			// TODO: log the error
+			logger.Error("Failed to accept incomming connection. (error=%v)", err)
 			continue
 		}
 
@@ -197,6 +228,7 @@ func (r *TcpRunner) worker(connection net.Conn) {
 	}
 }
 
+// CliRunner is the built-in runner for running the application on command line
 type CliRunner struct {
 	app Application
 	bus *CommandBus

@@ -18,7 +18,7 @@ func (r *Route) Method() string {
 	return r.method
 }
 
-func NewRoute(id uint32, uri string, method string) (route Route) {
+func NewRoute(id uint32, method string, uri string) (route Route) {
 	return Route{
 		id:     id,
 		uri:    uri,

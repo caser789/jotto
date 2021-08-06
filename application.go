@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/caser789/jotto/hotline"
@@ -20,7 +20,7 @@ type Application interface {
 	Fire(Event, interface{})
 	Boot() error
 	Run() error
-	Execute(*Processor, *Context) (uint32, proto.Message)
+	Execute(*Processor, *Context)
 }
 
 const (
@@ -75,41 +75,45 @@ func (app *BaseApplication) MakeHandler(processor *Processor) HttpHandler {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := &Context{
-			Request:  proto.Clone(processor.Request),
-			Response: proto.Clone(processor.Response),
+			Message:         proto.Clone(processor.Message),
+			Reply:           proto.Clone(processor.Reply),
+			Request:         r,
+			ResponseWritter: w,
 		}
 
 		body, _ := ioutil.ReadAll(r.Body)
 
-		json.Unmarshal(body, &ctx.Request)
+		json.Unmarshal(body, &ctx.Message)
 
-		_, reply := app.Execute(processor, ctx)
+		app.Execute(processor, ctx)
 
-		resp, _ := json.Marshal(reply)
+		resp, _ := json.Marshal(ctx.Reply)
 
+		w.Header().Set("Content-Type", "application/json")
 		w.Write(resp)
 	}
 }
 
 func (app *BaseApplication) Boot() (err error) {
-
-	http.Handle("/", app.router)
-
 	flag.StringVar(&app.protocol, "protocol", HTTP, "HTTP or TCP")
 
 	app.Fire(BootEvent, app)
+
+	flag.Parse()
+	http.Handle("/", app.router)
 
 	return
 }
 
 func (app *BaseApplication) Run() (err error) {
+	fmt.Printf("Running %s server at: %s\n", app.protocol, app.address)
 	switch app.protocol {
 	case TCP:
 		// TODO: start the TCP server
 		listener, err := net.Listen("tcp", app.address)
 
 		if err != nil {
-			os.Exit(1)
+			panic(err)
 		}
 
 		defer listener.Close()
@@ -131,14 +135,16 @@ func (app *BaseApplication) Run() (err error) {
 	return errors.New("Unrecognised protocol")
 }
 
-func (app *BaseApplication) Execute(processor *Processor, ctx *Context) (kind uint32, reply proto.Message) {
+func (app *BaseApplication) Execute(processor *Processor, ctx *Context) {
 	// TODO: add middleware
-	return processor.Handler(ctx)
+	ExecuteProcessor(processor, ctx, processor.Middlewares)
 }
 
 func (app *BaseApplication) tcpWorker(connection net.Conn) {
+	// TODO: move into configuration
 	timeout := time.Second * 10
 	line := hotline.NewHotline(connection, timeout)
+	defer line.Close()
 
 	for {
 		var kind uint32
@@ -158,20 +164,21 @@ func (app *BaseApplication) tcpWorker(connection net.Conn) {
 		}
 
 		ctx := &Context{
-			Request:  proto.Clone(processor.Request),
-			Response: proto.Clone(processor.Response),
+			MessageKind: kind,
+			Message:     proto.Clone(processor.Message),
+			Reply:       proto.Clone(processor.Reply),
 		}
 
-		proto.Unmarshal(input, ctx.Request)
+		proto.Unmarshal(input, ctx.Message)
 
-		kind, reply := app.Execute(processor, ctx)
+		app.Execute(processor, ctx)
 
-		output, err := proto.Marshal(reply)
+		output, err := proto.Marshal(ctx.Reply)
 
 		if err != nil {
 			// TODO: error response
 		}
 
-		line.Write(kind, output)
+		line.Write(ctx.ReplyKind, output)
 	}
 }

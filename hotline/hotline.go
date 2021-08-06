@@ -87,4 +87,5 @@ func (p *Hotline) Read() (uint32, []byte, error) {
 
 func (p *Hotline) Close() {
 	p.conn.Close()
+	p.alive = false
 }

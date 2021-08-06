@@ -2,10 +2,11 @@ package motto
 
 import "github.com/gogo/protobuf/proto"
 
-type ProcessorHandler func(*Context) (uint32, proto.Message)
+type ProcessorHandler func(*Context)
 
 type Processor struct {
-	Request  proto.Message
-	Response proto.Message
-	Handler  ProcessorHandler
+	Message     proto.Message
+	Reply       proto.Message
+	Handler     ProcessorHandler
+	Middlewares []Middleware
 }

@@ -2,7 +2,7 @@ package jotto
 
 import "github.com/gogo/protobuf/proto"
 
-type ProcessorHandler func(Application, *Context)
+type ProcessorHandler func(Application, Context)
 
 type Processor struct {
 	Message     proto.Message

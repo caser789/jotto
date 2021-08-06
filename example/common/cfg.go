@@ -1,21 +1,36 @@
 package common
 
-import "git.garena.com/caser789/jotto/jotto"
+import (
+	"encoding/xml"
+	"io/ioutil"
+
+	"git.garena.com/caser789/jotto/jotto"
+)
 
 type Config struct {
-	Protocol string
-	Address  string
-	LogLevel int
+	MottoSettings *jotto.Settings
 
-	Country string
+	LogLevel int
+	Country  string
 }
 
-func Cfg(app motto.Application) *Config {
-	cfg, ok := app.Get("cfg")
+func (c *Config) Motto() *jotto.Settings {
+	return c.MottoSettings
+}
 
-	if !ok {
-		return nil
+func LoadCfg(file string) (cfg *Config) {
+	content, err := ioutil.ReadFile(file)
+
+	if err != nil {
+		return
 	}
 
-	return cfg.(*Config)
+	cfg = &Config{}
+	xml.Unmarshal(content, cfg)
+
+	return
+}
+
+func Cfg(app jotto.Application) *Config {
+	return app.Settings().(*Config)
 }

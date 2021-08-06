@@ -21,8 +21,6 @@ type Runner interface {
 	Run() error
 }
 
-type HttpHandler func(http.ResponseWriter, *http.Request)
-
 func NewRunner(protocol string) (runner Runner) {
 	switch protocol {
 	case HTTP:
@@ -39,6 +37,8 @@ func NewRunner(protocol string) (runner Runner) {
 
 	return nil
 }
+
+type HttpHandler func(http.ResponseWriter, *http.Request)
 
 type HttpRunner struct {
 	app    Application
@@ -65,18 +65,20 @@ func (r *HttpRunner) Attach(app Application) (err error) {
 func (runner *HttpRunner) handler(processor *Processor, app Application) HttpHandler {
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := &Context{
+		ctx := &BaseContext{
 			Message:         proto.Clone(processor.Message),
 			Reply:           proto.Clone(processor.Reply),
 			Request:         r,
 			ResponseWritter: w,
 		}
 
+		context := app.MakeContext(ctx)
+
 		body, _ := ioutil.ReadAll(r.Body)
 
 		json.Unmarshal(body, &ctx.Message)
 
-		app.Execute(processor, ctx)
+		app.Execute(processor, context)
 
 		resp, _ := json.Marshal(ctx.Reply)
 
@@ -147,15 +149,17 @@ func (r *TcpRunner) worker(connection net.Conn) {
 			continue
 		}
 
-		ctx := &Context{
+		ctx := &BaseContext{
 			MessageKind: kind,
 			Message:     proto.Clone(processor.Message),
 			Reply:       proto.Clone(processor.Reply),
 		}
 
+		context := r.app.MakeContext(ctx)
+
 		proto.Unmarshal(input, ctx.Message)
 
-		r.app.Execute(processor, ctx)
+		r.app.Execute(processor, context)
 
 		output, err := proto.Marshal(ctx.Reply)
 

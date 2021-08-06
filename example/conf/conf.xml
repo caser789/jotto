@@ -1,6 +1,25 @@
 <config>
+    <MottoSettings>
+        <Protocol>TCP</Protocol>
+        <Address>:8080</Address>
+        <Cache>
+            <Driver>redis</Driver>
+            <Redis>
+                <Address>127.0.0.1:6379</Address>
+                <Database>0</Database>
+                <Password></Password>
+            </Redis>
+        </Cache>
+        <Queue>
+            <Driver>redis</Driver>
+            <Redis>
+                <Address>127.0.0.1:6379</Address>
+                <Database>0</Database>
+                <Password></Password>
+            </Redis>
+        </Queue>
+    </MottoSettings>
+
     <Country>ID</Country>
-    <Protocol>TCP</Protocol>
-    <Address>:8080</Address>
     <LogLevel>1</LogLevel>
 </config>

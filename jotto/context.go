@@ -6,7 +6,11 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-type Context struct {
+type Context interface {
+	Motto() *BaseContext
+}
+
+type BaseContext struct {
 	// Proto messages
 	MessageKind uint32
 	ReplyKind   uint32
@@ -16,4 +20,10 @@ type Context struct {
 	// HTTP messages
 	Request         *http.Request
 	ResponseWritter http.ResponseWriter
+}
+
+type ContextFactory func(*BaseContext) Context
+
+func (c *BaseContext) Motto() *BaseContext {
+	return c
 }

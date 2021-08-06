@@ -1,0 +1,37 @@
+package motto
+
+type MottoSettings interface {
+	Motto() *Settings
+}
+
+type Settings struct {
+	Protocol string `json:"protocol" xml:"Protocol"`
+	Address  string `json:"address" xml:"Address"`
+
+	Cache CacheSettings `json:"cache,omitempty" xml:"Cache,omitempty"`
+	Queue QueueSettings `json:"queue,omitempty" xml:"Queue,omitempty"`
+}
+
+type CacheSettings struct {
+	Driver    string            `json:"driver" xml:"Driver"`
+	Redis     RedisSettings     `json:"redis,omitempty" xml:"Redis,omitempty"`
+	Memcached MemcachedSettings `json:"memcached,omitempty" xml:"Memcached,omitempty"`
+}
+
+type QueueSettings struct {
+	Driver string        `json:"driver" xml:"Driver"`
+	Redis  RedisSettings `json:"redis,omitempty" xml:"Redis,omitempty"`
+}
+
+type RedisSettings struct {
+	Address      string `json:"address" xml:"Address"`
+	Database     int    `json:"database" xml:"database"`
+	Password     string `json:"password,omitempty" xml:"Password,omitempty"`
+	DialTimeout  int    `json:"dial-timeout,omitempty" xml:"DialTimeout,omitempty"`
+	ReadTimeout  int    `json:"read-timeout,omitempty" xml:"ReadTimeout,omitempty"`
+	WriteTimeout int    `json:"write-timeout,omitempty" xml:"WriteTimeout,omitempty"`
+}
+
+type MemcachedSettings struct {
+	Address []string `json:"address" xml:"Address"`
+}

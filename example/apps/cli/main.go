@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 
+	"git.garena.com/caser789/jotto/example/commands"
+	"git.garena.com/caser789/jotto/example/routes"
 	"git.garena.com/caser789/jotto/jotto"
-	"git.garena.com/caser789/jotto/sample"
-	"git.garena.com/caser789/jotto/sample/commands"
 )
 
 func main() {
@@ -14,7 +14,7 @@ func main() {
 
 	runner := motto.NewCliRunner(bus)
 
-	app := motto.NewApplication(motto.HTTP, ":8080", sample.Routes)
+	app := motto.NewApplication(motto.HTTP, ":8080", routes.Routes)
 	app.Boot()
 
 	fmt.Println(app.Run(runner))

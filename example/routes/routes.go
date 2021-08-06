@@ -1,4 +1,4 @@
-package sample
+package routes
 
 import (
 	"github.com/caser789/jotto/example/middlewares"

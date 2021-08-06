@@ -4,8 +4,9 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/caser789/jotto/example/common"
+	"github.com/caser789/jotto/example/routes"
 	"github.com/caser789/jotto/jotto"
-	"github.com/caser789/jotto/sample"
 )
 
 func main() {
@@ -16,9 +17,9 @@ func main() {
 
 	flag.Parse()
 
-	app := motto.NewApplication(protocol, address, sample.Routes)
+	app := motto.NewApplication(protocol, address, routes.Routes)
 
-	app.On(motto.BootEvent, sample.Boot)
+	app.On(motto.BootEvent, common.Boot)
 	app.Boot()
 
 	fmt.Println(app.Run(nil))

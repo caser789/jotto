@@ -1,0 +1,6 @@
+<config>
+    <Country>ID</Country>
+    <Protocol>TCP</Protocol>
+    <Address>:8080</Address>
+    <LogLevel>1</LogLevel>
+</config>

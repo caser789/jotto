@@ -5,16 +5,17 @@ import (
 	"io/ioutil"
 
 	"git.garena.com/caser789/jotto/jotto"
+	"git.garena.com/lixh/goorm"
 )
 
 type Config struct {
-	MottoSettings *jotto.Settings
+	MottoSettings *motto.Settings
 
 	LogLevel int
 	Country  string
 }
 
-func (c *Config) Motto() *jotto.Settings {
+func (c *Config) Motto() *motto.Settings {
 	return c.MottoSettings
 }
 
@@ -31,6 +32,19 @@ func LoadCfg(file string) (cfg *Config) {
 	return
 }
 
-func Cfg(app jotto.Application) *Config {
+func Cfg(app motto.Application) *Config {
 	return app.Settings().(*Config)
+}
+
+type Context struct {
+	MottoCtx *motto.BaseContext
+	Orm      *goorm.Orm
+}
+
+func (ctx *Context) Motto() *motto.BaseContext {
+	return ctx.MottoCtx
+}
+
+func Ctx(ctx motto.Context) *Context {
+	return ctx.(*Context)
 }

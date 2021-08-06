@@ -9,7 +9,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-func About(app motto.Application, ctx *motto.Context) {
+func About(app motto.Application, context motto.Context) {
+	ctx := context.Motto()
 	reply := ctx.Reply.(*pb.RespAbout)
 
 	reply.About = proto.String(fmt.Sprintf("(%s) This is an example application written in Motto, the microservice framework.", common.Cfg(app).Country))

@@ -13,6 +13,7 @@ var web = []motto.Middleware{
 	middlewares.Logging,
 	middlewares.RequestId,
 	middlewares.Tag,
+	middlewares.Orm,
 }
 
 var Routes = map[motto.Route]*motto.Processor{

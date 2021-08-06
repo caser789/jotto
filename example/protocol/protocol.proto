@@ -35,3 +35,10 @@ message RespAbout {
     optional string request_id = 1;
     optional string about = 2;
 }
+
+// Models
+message Quote {
+    optional int64 id = 1;
+    optional string quote = 2;
+    optional string author = 3;
+}

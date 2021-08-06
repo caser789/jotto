@@ -12,6 +12,8 @@ func main() {
 	cfg := common.LoadCfg("conf/conf.xml")
 	app := motto.NewApplication(cfg, routes.Routes)
 
+	app.SetContextFactory(common.ContextFactory)
+
 	app.On(motto.BootEvent, common.Boot)
 	app.Boot()
 

@@ -6,7 +6,10 @@ import (
 
 	"git.garena.com/caser789/jotto/jotto"
 	"git.garena.com/lixh/goorm"
+	"github.com/gogo/protobuf/proto"
 )
+
+/* Custom configuration struct */
 
 type Config struct {
 	MottoSettings *motto.Settings
@@ -36,6 +39,8 @@ func Cfg(app motto.Application) *Config {
 	return app.Settings().(*Config)
 }
 
+/* Custom context struct */
+
 type Context struct {
 	MottoCtx *motto.BaseContext
 	Orm      *goorm.Orm
@@ -47,4 +52,24 @@ func (ctx *Context) Motto() *motto.BaseContext {
 
 func Ctx(ctx motto.Context) *Context {
 	return ctx.(*Context)
+}
+
+/* Custom processor */
+
+func NewProcessor(message, reply proto.Message, handler motto.ProcessorHandler, middlewares []motto.Middleware, orm *OrmSetting) *Processor {
+
+	return &Processor{
+		BaseProcessor: *motto.NewProcessor(message, reply, handler, middlewares).(*motto.BaseProcessor),
+		Orm:           orm,
+	}
+}
+
+type Processor struct {
+	motto.BaseProcessor
+	Orm *OrmSetting
+}
+
+type OrmSetting struct {
+	Database string
+	Flag     int
 }

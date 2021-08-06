@@ -33,8 +33,17 @@ func Boot(app interface{}) {
 	}
 }
 
-func ContextFactory(ctx *motto.BaseContext) motto.Context {
+func ContextFactory(processor motto.Processor, ctx *motto.BaseContext) motto.Context {
+	p := processor.(*Processor)
+
+	var orm *goorm.Orm
+
+	if p.Orm != nil {
+		orm = goorm.NewOrmWithFlag(p.Orm.Database, p.Orm.Flag)
+	}
+
 	return &Context{
 		MottoCtx: ctx,
+		Orm:      orm,
 	}
 }

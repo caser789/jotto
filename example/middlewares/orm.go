@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"git.garena.com/duanzy/motto/sample/common"
-	"git.garena.com/lixh/goorm"
 
 	"git.garena.com/duanzy/motto/motto"
 )
@@ -12,7 +11,9 @@ import (
 func Orm(app motto.Application, context motto.Context, next func(motto.Context) error) (err error) {
 	ctx := common.Ctx(context)
 
-	ctx.Orm = goorm.NewOrmWithFlag("upper", goorm.Trx_ReadSLock)
+	if ctx.Orm != nil && ctx.Orm.NeedTrx() {
+		ctx.Orm.Begin()
+	}
 
 	err = next(context)
 

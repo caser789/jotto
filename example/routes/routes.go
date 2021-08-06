@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"git.garena.com/duanzy/motto/motto"
+	"git.garena.com/duanzy/motto/sample/common"
 	"github.com/caser789/jotto/example/middlewares"
 	"github.com/caser789/jotto/example/processors"
 	pb "github.com/caser789/jotto/example/protocol"
@@ -16,7 +18,11 @@ var web = []motto.Middleware{
 	middlewares.Orm,
 }
 
-var Routes = map[motto.Route]*motto.Processor{
-	r(uint32(pb.MSG_KIND_REQ_ABOUT), "POST", "/v1/about"): &motto.Processor{&pb.ReqAbout{}, &pb.RespAbout{}, processors.About, web},
-	r(uint32(pb.MSG_KIND_REQ_TEXT), "POST", "/v1/text"):   &motto.Processor{&pb.ReqText{}, &pb.RespText{}, processors.Text, web},
+var (
+	MainShared = &common.OrmSetting{"upper", goorm.Trx_ReadSLock}
+)
+
+var Routes = map[motto.Route]motto.Processor{
+	r(uint32(pb.MSG_KIND_REQ_ABOUT), "POST", "/v1/about"): common.NewProcessor(&pb.ReqAbout{}, &pb.RespAbout{}, processors.About, web, MainShared),
+	r(uint32(pb.MSG_KIND_REQ_TEXT), "POST", "/v1/text"):   common.NewProcessor(&pb.ReqText{}, &pb.RespText{}, processors.Text, web, MainShared),
 }

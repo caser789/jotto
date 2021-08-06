@@ -15,7 +15,7 @@ type Application interface {
 	On(Event, Listener)
 	Fire(Event, interface{})
 	Boot() error
-	Run() error
+	Run(Runner) error
 	Execute(*Processor, *Context)
 
 	Protocol() string
@@ -106,10 +106,12 @@ func (app *BaseApplication) Boot() (err error) {
 	return
 }
 
-func (app *BaseApplication) Run() (err error) {
+func (app *BaseApplication) Run(runner Runner) (err error) {
 	fmt.Printf("Running %s server at: %s\n", app.protocol, app.address)
 
-	runner := NewRunner(app.protocol)
+	if runner == nil {
+		runner := NewRunner(app.protocol)
+	}
 	runner.Attach(app)
 
 	if runner == nil {

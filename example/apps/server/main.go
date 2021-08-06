@@ -12,5 +12,5 @@ func main() {
 
 	app.Boot()
 
-	app.Run()
+	app.Run(nil)
 }

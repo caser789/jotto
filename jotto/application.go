@@ -21,6 +21,9 @@ type Application interface {
 
 	SetContextFactory(ContextFactory)
 	MakeContext(Processor, *BaseContext) Context
+
+	SetLoggerFactory(LoggerFactory)
+	MakeLogger(LoggerContext) Logger
 }
 
 const (
@@ -29,9 +32,10 @@ const (
 )
 
 var (
-	BootEvent        = NewEvent("motto:boot")
-	ContextInitEvent = NewEvent("motto:context:init")
-	PanicEvent       = NewEvent("motto:panic")
+	BootEvent  = NewEvent("motto:boot")
+	PanicEvent = NewEvent("motto:panic")
+
+	RouteNotFoundEvent = NewEvent("motto:routing:notfound")
 )
 
 type BaseApplication struct {
@@ -42,6 +46,7 @@ type BaseApplication struct {
 	registry       map[string]interface{}
 	settings       MottoSettings
 	contextFactory ContextFactory
+	loggerFactory  LoggerFactory
 }
 
 func NewApplication(settings MottoSettings, routes map[Route]Processor) Application {
@@ -53,6 +58,7 @@ func NewApplication(settings MottoSettings, routes map[Route]Processor) Applicat
 		registry:       make(map[string]interface{}),
 		settings:       settings,
 		contextFactory: func(p Processor, c *BaseContext) Context { return c },
+		loggerFactory:  func(c LoggerContext) Logger { return NewStdoutLogger(c) },
 	}
 
 	return app
@@ -97,6 +103,14 @@ func (app *BaseApplication) SetContextFactory(factory ContextFactory) {
 
 func (app *BaseApplication) MakeContext(processor Processor, ctx *BaseContext) Context {
 	return app.contextFactory(processor, ctx)
+}
+
+func (app *BaseApplication) SetLoggerFactory(factory LoggerFactory) {
+	app.loggerFactory = factory
+}
+
+func (app *BaseApplication) MakeLogger(c LoggerContext) Logger {
+	return app.loggerFactory(c)
 }
 
 func (app *BaseApplication) Boot() (err error) {

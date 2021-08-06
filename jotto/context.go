@@ -20,6 +20,8 @@ type BaseContext struct {
 	// HTTP messages
 	Request         *http.Request
 	ResponseWritter http.ResponseWriter
+
+	Logger Logger
 }
 
 type ContextFactory func(Processor, *BaseContext) Context

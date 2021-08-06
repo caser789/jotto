@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -127,6 +128,8 @@ func (r *TcpRunner) Run() (err error) {
 }
 
 func (r *TcpRunner) worker(connection net.Conn) {
+	defer connection.Close()
+
 	// TODO: move into configuration
 	timeout := time.Second * 10
 	line := hotline.NewHotline(connection, timeout)
@@ -135,39 +138,62 @@ func (r *TcpRunner) worker(connection net.Conn) {
 	for {
 		var kind uint32
 
+		logger := r.app.MakeLogger(map[string]interface{}{
+			"trace_id": GenerateTraceID(),
+		})
+
+		logger.Debug("Logger created")
+
 		kind, input, err := line.Read()
 
 		if err != nil {
-			// TODO: handle error
+			if neterr, ok := err.(net.Error); ok && neterr.Timeout() {
+				logger.Error("Hotline %s timed out, error: %v", line, err)
+			} else if err == io.EOF {
+				// Ignore
+			} else {
+				logger.Error("Failed to read from hotline %s, error: %v", line, err)
+			}
 			return
 		}
 
 		processor, exists := r.routes[kind]
 
-		if !exists {
-			// TODO: error response
-			continue
-		}
-
 		ctx := &BaseContext{
 			MessageKind: kind,
-			Message:     proto.Clone(processor.Message()),
-			Reply:       proto.Clone(processor.Reply()),
+			Logger:      logger,
 		}
 
-		context := r.app.MakeContext(processor, ctx)
+		if !exists {
+			// The given message identifier (kind) does not exist in the routing
+			// table. We will fire an event to let the application handle this
+			// case. The application is supposed to initialize the ctx.Reply field
+			// with a proper proto.Message and fill in the ctx.ReplyKind.
+			r.app.Fire(RouteNotFoundEvent, ctx)
+		} else {
+			ctx.Message = proto.Clone(processor.Message())
+			ctx.Reply = proto.Clone(processor.Reply())
 
-		proto.Unmarshal(input, ctx.Message)
+			context := r.app.MakeContext(processor, ctx)
 
-		r.app.Execute(processor, context)
+			proto.Unmarshal(input, ctx.Message)
+
+			r.app.Execute(processor, context)
+		}
 
 		output, err := proto.Marshal(ctx.Reply)
 
 		if err != nil {
-			// TODO: error response
+			// In case of a marshal error, we will panic and let the application
+			// deal with the aftermath.
+			r.app.Fire(PanicEvent, ctx)
 		}
 
-		line.Write(ctx.ReplyKind, output)
+		err = line.Write(ctx.ReplyKind, output)
+
+		if err != nil {
+			logger.Error("Failed to write to hotline %s, error: %v", line, err)
+		}
 	}
 }
 

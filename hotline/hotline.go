@@ -3,6 +3,7 @@ package hotline
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"net"
 	"time"
 )
@@ -26,13 +27,17 @@ func NewHotline(conn net.Conn, timeout time.Duration) *Hotline {
 	}
 }
 
+func (p *Hotline) String() string {
+	return fmt.Sprintf("(remote:%s,timeout:%s)", p.conn.RemoteAddr(), p.timeout)
+}
+
 // Write() writes the given message to the underlying TCP connection.
-func (p *Hotline) Write(kind uint32, message []byte) (int, error) {
+func (p *Hotline) Write(kind uint32, message []byte) (err error) {
 	header := make([]byte, 8)
 	size := len(message)
 
 	if size <= 0 {
-		return 0, errors.New("Invalid message size")
+		return errors.New("Invalid message size")
 	}
 
 	binary.LittleEndian.PutUint32(header, uint32(kind))
@@ -40,18 +45,19 @@ func (p *Hotline) Write(kind uint32, message []byte) (int, error) {
 
 	buffer := make([]byte, 8+size)
 
+	// Two copies? Or two syscalls?
 	copy(buffer, header)
 	copy(buffer[8:], message)
 
-	p.conn.SetReadDeadline(time.Now().Add(p.timeout))
-	_, err := p.conn.Write(buffer)
+	p.conn.SetWriteDeadline(time.Now().Add(p.timeout))
+	_, err = p.conn.Write(buffer)
 
 	if err != nil {
 		p.alive = false
-		return 0, err
+		return
 	}
 
-	return 0, err
+	return
 }
 
 // Read() reads a message from the underlying TCP connection.

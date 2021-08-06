@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 
 	"git.garena.com/caser789/jotto/example/commands"
@@ -14,6 +15,10 @@ func main() {
 	bus.Register(commands.NewUpper())
 
 	runner := motto.NewCliRunner(bus)
+
+	var recipe string
+	flag.StringVar(&recipe, "recipe", "conf/conf.xml", "The configuration file")
+	flag.Parse()
 
 	cfg := common.LoadCfg("conf/conf.xml")
 	app := motto.NewApplication(cfg, routes.Routes)

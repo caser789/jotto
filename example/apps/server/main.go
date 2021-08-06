@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 
 	"github.com/caser789/jotto/example/common"
@@ -9,7 +10,11 @@ import (
 )
 
 func main() {
-	cfg := common.LoadCfg("conf/conf.xml")
+	var recipe string
+	flag.StringVar(&recipe, "recipe", "conf/conf.xml", "The configuration file")
+	flag.Parse()
+
+	cfg := common.LoadCfg(recipe)
 	app := motto.NewApplication(cfg, routes.Routes)
 
 	app.SetContextFactory(common.ContextFactory)

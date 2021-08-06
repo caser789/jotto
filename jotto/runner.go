@@ -30,7 +30,7 @@ func NewRunner(protocol string) (runner Runner) {
 		return runner
 	case TCP:
 		runner = &TcpRunner{
-			routes: make(map[uint32]*Processor),
+			routes: make(map[uint32]Processor),
 		}
 		return runner
 	}
@@ -62,17 +62,17 @@ func (r *HttpRunner) Attach(app Application) (err error) {
 	return
 }
 
-func (runner *HttpRunner) handler(processor *Processor, app Application) HttpHandler {
+func (runner *HttpRunner) handler(processor Processor, app Application) HttpHandler {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := &BaseContext{
-			Message:         proto.Clone(processor.Message),
-			Reply:           proto.Clone(processor.Reply),
+			Message:         proto.Clone(processor.Message()),
+			Reply:           proto.Clone(processor.Reply()),
 			Request:         r,
 			ResponseWritter: w,
 		}
 
-		context := app.MakeContext(ctx)
+		context := app.MakeContext(processor, ctx)
 
 		body, _ := ioutil.ReadAll(r.Body)
 
@@ -89,7 +89,7 @@ func (runner *HttpRunner) handler(processor *Processor, app Application) HttpHan
 
 type TcpRunner struct {
 	app    Application
-	routes map[uint32]*Processor
+	routes map[uint32]Processor
 }
 
 func (r *TcpRunner) Attach(app Application) (err error) {
@@ -151,11 +151,11 @@ func (r *TcpRunner) worker(connection net.Conn) {
 
 		ctx := &BaseContext{
 			MessageKind: kind,
-			Message:     proto.Clone(processor.Message),
-			Reply:       proto.Clone(processor.Reply),
+			Message:     proto.Clone(processor.Message()),
+			Reply:       proto.Clone(processor.Reply()),
 		}
 
-		context := r.app.MakeContext(ctx)
+		context := r.app.MakeContext(processor, ctx)
 
 		proto.Unmarshal(input, ctx.Message)
 

@@ -22,7 +22,7 @@ type BaseContext struct {
 	ResponseWritter http.ResponseWriter
 }
 
-type ContextFactory func(*BaseContext) Context
+type ContextFactory func(Processor, *BaseContext) Context
 
 func (c *BaseContext) Motto() *BaseContext {
 	return c

@@ -9,18 +9,18 @@ type Application interface {
 	Fire(Event, interface{})
 	Boot() error
 	Run(Runner) error
-	Execute(*Processor, Context)
+	Execute(Processor, Context)
 
 	Protocol() string
 	Address() string
-	Routes() map[Route]*Processor
+	Routes() map[Route]Processor
 
 	Get(string) (interface{}, bool)
 	Set(string, interface{})
 	Settings() MottoSettings
 
 	SetContextFactory(ContextFactory)
-	MakeContext(*BaseContext) Context
+	MakeContext(Processor, *BaseContext) Context
 }
 
 const (
@@ -38,13 +38,13 @@ type BaseApplication struct {
 	protocol       string
 	address        string
 	eventBus       *EventBus
-	routes         map[Route]*Processor
+	routes         map[Route]Processor
 	registry       map[string]interface{}
 	settings       MottoSettings
 	contextFactory ContextFactory
 }
 
-func NewApplication(settings MottoSettings, routes map[Route]*Processor) Application {
+func NewApplication(settings MottoSettings, routes map[Route]Processor) Application {
 	app := &BaseApplication{
 		protocol:       settings.Motto().Protocol,
 		address:        settings.Motto().Address,
@@ -52,7 +52,7 @@ func NewApplication(settings MottoSettings, routes map[Route]*Processor) Applica
 		routes:         routes,
 		registry:       make(map[string]interface{}),
 		settings:       settings,
-		contextFactory: func(c *BaseContext) Context { return c },
+		contextFactory: func(p Processor, c *BaseContext) Context { return c },
 	}
 
 	return app
@@ -66,7 +66,7 @@ func (app *BaseApplication) Address() string {
 	return app.address
 }
 
-func (app *BaseApplication) Routes() map[Route]*Processor {
+func (app *BaseApplication) Routes() map[Route]Processor {
 	return app.routes
 }
 
@@ -95,8 +95,8 @@ func (app *BaseApplication) SetContextFactory(factory ContextFactory) {
 	app.contextFactory = factory
 }
 
-func (app *BaseApplication) MakeContext(ctx *BaseContext) Context {
-	return app.contextFactory(ctx)
+func (app *BaseApplication) MakeContext(processor Processor, ctx *BaseContext) Context {
+	return app.contextFactory(processor, ctx)
 }
 
 func (app *BaseApplication) Boot() (err error) {
@@ -118,13 +118,13 @@ func (app *BaseApplication) Run(runner Runner) (err error) {
 	return runner.Run()
 }
 
-func (app *BaseApplication) Execute(processor *Processor, ctx Context) {
-	app.ExecuteProcessor(processor, ctx, processor.Middlewares)
+func (app *BaseApplication) Execute(processor Processor, ctx Context) {
+	app.ExecuteProcessor(processor, ctx, processor.Middlewares())
 }
 
-func (app *BaseApplication) ExecuteProcessor(processor *Processor, ctx Context, mids []Middleware) (err error) {
+func (app *BaseApplication) ExecuteProcessor(processor Processor, ctx Context, mids []Middleware) (err error) {
 	if len(mids) == 0 {
-		processor.Handler(app, ctx)
+		processor.Handler()(app, ctx)
 		return
 	}
 

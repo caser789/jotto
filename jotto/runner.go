@@ -2,9 +2,12 @@ package jotto
 
 import (
 	"encoding/json"
+	"flag"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -18,15 +21,15 @@ type Runner interface {
 	Run() error
 }
 
-func NewRunner(protocol string) Runner {
+func NewRunner(protocol string) (runner Runner) {
 	switch protocol {
 	case HTTP:
-		runner := &HttpRunner{
+		runner = &HttpRunner{
 			router: mux.NewRouter(),
 		}
 		return runner
 	case TCP:
-		runner := &TcpRunner{
+		runner = &TcpRunner{
 			routes: make(map[uint32]*Processor),
 		}
 		return runner
@@ -158,4 +161,56 @@ func (r *TcpRunner) worker(connection net.Conn) {
 
 		line.Write(ctx.ReplyKind, output)
 	}
+}
+
+type CliRunner struct {
+	app Application
+	bus *CommandBus
+}
+
+func NewCliRunner(bus *CommandBus) (runner *CliRunner) {
+	return &CliRunner{
+		bus: bus,
+	}
+}
+
+func (r *CliRunner) Attatch(app Application) (err error) {
+	r.app = app
+	return
+}
+
+func (r *CliRunner) Run() (err error) {
+	if len(os.Args) < 2 {
+		r.help()
+		return
+	}
+
+	name := os.Args[1]
+
+	// 2. Find command in the bus
+	command, err := r.bus.Find(name[1:])
+
+	if err != nil {
+		r.help()
+		return
+	}
+
+	flag.Bool(command.Name(), true, "command name")
+
+	// 3. Run command initializations.
+	command.Boot()
+
+	flag.Parse()
+
+	r.app.Boot()
+
+	// 4. Run the command.
+	command.Run(r.app, flag.Args())
+	return
+}
+
+func (r *CliRunner) help() {
+	fmt.Printf("Usage: %s -<command-name> ...<flags> ...<args>    To run a command\n", os.Args[0])
+	fmt.Printf("       %s -<command-name> -h                      To get usage information of a specific command\n\n", os.Args[0])
+	r.bus.Print()
 }

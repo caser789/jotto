@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 
 	"git.garena.com/caser789/jotto/jotto"
@@ -19,36 +18,14 @@ func help() {
 }
 
 func main() {
-	bus = jotto.NewCommandBus()
+	app := motto.NewApplication(motto.HTTP, ":8080", sample.Routes)
+	app.On(motto.BootEvent, sample.Boot)
 
+	bus = motto.NewCommandBus()
 	bus.Register(commands.NewUpper())
 
-	if len(os.Args) < 2 {
-		help()
-		return
-	}
+	runner := motto.NewCliRunner(bus)
 
-	name := os.Args[1]
-
-	// 2. Find command in the bus
-	command, err := bus.Find(name[1:])
-
-	if err != nil {
-		help()
-		return
-	}
-
-	flag.Bool(command.Name(), true, "command name")
-
-	// 3. Run command initializations.
-	command.Boot()
-
-	flag.Parse()
-
-	app := jotto.NewApplication(jotto.HTTP, ":8080", sample.Routes)
-	app.On(jotto.BootEvent, sample.Boot)
-	app.Boot()
-
-	// 4. Run the command.
-	command.Run(app, flag.Args())
+	runner.Attatch(app)
+	runner.Run()
 }

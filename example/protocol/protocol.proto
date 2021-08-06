@@ -1,0 +1,37 @@
+enum MSG_KIND
+{
+    EMPTY = 0;
+
+    REQ_ABOUT  = 100;
+    RESP_ABOUT = 101;
+
+    REQ_TEXT   = 102;
+    RESP_TEXT  = 103;
+}
+
+message ReqCommon {
+    optional string request_id = 1;
+}
+
+message RespCommon {
+    optional string request_id = 1;
+}
+
+message ReqText {
+    optional string request_id = 1;
+    optional string text = 2;
+}
+
+message RespText {
+    optional string request_id = 1;
+    optional string text = 2;
+}
+
+message ReqAbout {
+    optional string request_id = 1;
+}
+
+message RespAbout {
+    optional string request_id = 1;
+    optional string about = 2;
+}

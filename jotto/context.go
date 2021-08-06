@@ -1,4 +1,4 @@
-package motto
+package jotto
 
 import (
 	"net/http"

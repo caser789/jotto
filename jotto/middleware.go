@@ -1,4 +1,4 @@
-package motto
+package jotto
 
 type Middleware func(ctx *Context, next func(*Context) error) error
 

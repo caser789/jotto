@@ -1,4 +1,4 @@
-package motto
+package jotto
 
 type Route struct {
 	id     uint32

@@ -1,4 +1,4 @@
-package motto
+package jotto
 
 type Event interface {
 	Name() string

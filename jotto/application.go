@@ -1,4 +1,4 @@
-package motto
+package jotto
 
 import (
 	"encoding/json"
@@ -29,8 +29,8 @@ const (
 )
 
 var (
-	BootEvent  = NewEvent("motto:boot")
-	PanicEvent = NewEvent("motto:panic")
+	BootEvent  = NewEvent("jotto:boot")
+	PanicEvent = NewEvent("jotto:panic")
 )
 
 type BaseApplication struct {

@@ -8,7 +8,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-func Text(ctx *jotto.Context) {
+func Text(app motto.Application, ctx *motto.Context) {
 	message := ctx.Message.(*pb.ReqText)
 	reply := ctx.Reply.(*pb.RespText)
 

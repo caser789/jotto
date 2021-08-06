@@ -9,16 +9,16 @@ import (
 	"github.com/caser789/jotto/jotto"
 )
 
-var r = jotto.NewRoute
+var r = motto.NewRoute
 
-func Logging(ctx *motto.Context, next func(*motto.Context) error) (err error) {
-	fmt.Println(ctx.Request)
+func Logging(app motto.Application, ctx *motto.Context, next func(*motto.Context) error) (err error) {
+	fmt.Println("logging", ctx.Request)
 	err = next(ctx)
-	fmt.Println(ctx.Reply)
+	fmt.Println("logging", ctx.Reply)
 	return
 }
 
-func RequestId(ctx *jotto.Context, next func(*jotto.Context) error) (err error) {
+func RequestId(app motto.Application, ctx *motto.Context, next func(*motto.Context) error) (err error) {
 	msg := reflect.ValueOf(ctx.Message)
 	f := reflect.Indirect(msg).FieldByName("RequestId")
 
@@ -30,19 +30,24 @@ func RequestId(ctx *jotto.Context, next func(*jotto.Context) error) (err error) 
 	return
 }
 
-func Tag(ctx *jotto.Context, next func(*jotto.Context) error) (err error) {
-	ctx.ResponseWritter.Header().Set("X-UPPER-ID", "Upper - Powered by Jotto")
+func Tag(app motto.Application, ctx *motto.Context, next func(*motto.Context) error) (err error) {
+
+	if app.Protocol() == motto.HTTP {
+		fmt.Printf("tag: %+v\n", ctx)
+
+		ctx.ResponseWritter.Header().Set("X-UPPER-ID", "Upper - Powered by Motto")
+	}
 
 	return next(ctx)
 }
 
-var web = []jotto.Middleware{
+var web = []motto.Middleware{
 	Logging,
 	RequestId,
 	Tag,
 }
 
-var Routes = map[jotto.Route]*jotto.Processor{
-	r(uint32(pb.MSG_KIND_REQ_ABOUT), "POST", "/v1/about"): &jotto.Processor{&pb.ReqAbout{}, &pb.RespAbout{}, processors.About, web},
-	r(uint32(pb.MSG_KIND_REQ_TEXT), "POST", "/v1/text"):   &jotto.Processor{&pb.ReqText{}, &pb.RespText{}, processors.Text, web},
+var Routes = map[motto.Route]*motto.Processor{
+	r(uint32(pb.MSG_KIND_REQ_ABOUT), "POST", "/v1/about"): &motto.Processor{&pb.ReqAbout{}, &pb.RespAbout{}, processors.About, web},
+	r(uint32(pb.MSG_KIND_REQ_TEXT), "POST", "/v1/text"):   &motto.Processor{&pb.ReqText{}, &pb.RespText{}, processors.Text, web},
 }

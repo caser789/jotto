@@ -28,11 +28,11 @@ func NewUpper() *Upper {
 }
 
 func (i *Upper) Name() string {
-	return "about"
+	return "upper"
 }
 
 func (i *Upper) Description() string {
-	return "Upper calls the about API provided by the sample server"
+	return "Upper calls the upper API provided by the sample server"
 }
 
 func (i *Upper) Boot() (err error) {

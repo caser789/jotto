@@ -21,6 +21,8 @@ type Runner interface {
 	Run() error
 }
 
+type HttpHandler func(http.ResponseWriter, *http.Request)
+
 func NewRunner(protocol string) (runner Runner) {
 	switch protocol {
 	case HTTP:
@@ -44,6 +46,7 @@ type HttpRunner struct {
 }
 
 func (r *HttpRunner) Run() error {
+	fmt.Printf("Running %s server at %s\n", r.app.Protocol(), r.app.Address())
 	http.Handle("/", r.router)
 	return http.ListenAndServe(r.app.Address(), nil)
 }
@@ -99,7 +102,8 @@ func (r *TcpRunner) Attach(app Application) (err error) {
 }
 
 func (r *TcpRunner) Run() (err error) {
-	// TODO: start the TCP server
+	fmt.Printf("Running %s server at %s\n", r.app.Protocol(), r.app.Address())
+
 	listener, err := net.Listen("tcp", r.app.Address())
 
 	if err != nil {
@@ -174,7 +178,7 @@ func NewCliRunner(bus *CommandBus) (runner *CliRunner) {
 	}
 }
 
-func (r *CliRunner) Attatch(app Application) (err error) {
+func (r *CliRunner) Attach(app Application) (err error) {
 	r.app = app
 	return
 }

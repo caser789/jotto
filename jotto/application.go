@@ -1,14 +1,7 @@
 package jotto
 
 import (
-	"encoding/json"
-	"errors"
-	"flag"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-
-	"github.com/gogo/protobuf/proto"
 )
 
 type Application interface {
@@ -21,6 +14,9 @@ type Application interface {
 	Protocol() string
 	Address() string
 	Routes() map[Route]*Processor
+
+	Get(string) (interface{}, bool)
+	Set(string, interface{})
 }
 
 const (
@@ -38,6 +34,7 @@ type BaseApplication struct {
 	address  string
 	eventBus *EventBus
 	routes   map[Route]*Processor
+	registry map[string]interface{}
 }
 
 func NewApplication(protocol string, address string, routes map[Route]*Processor) Application {
@@ -46,6 +43,7 @@ func NewApplication(protocol string, address string, routes map[Route]*Processor
 		address:  address,
 		eventBus: NewEventBus(),
 		routes:   routes,
+		registry: make(map[string]interface{}),
 	}
 
 	return app
@@ -71,53 +69,21 @@ func (app *BaseApplication) Fire(event Event, payload interface{}) {
 	app.eventBus.Fire(event, payload)
 }
 
-type HttpHandler func(http.ResponseWriter, *http.Request)
-
-func (app *BaseApplication) MakeHandler(processor *Processor) HttpHandler {
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := &Context{
-			Message:         proto.Clone(processor.Message),
-			Reply:           proto.Clone(processor.Reply),
-			Request:         r,
-			ResponseWritter: w,
-		}
-
-		body, _ := ioutil.ReadAll(r.Body)
-
-		json.Unmarshal(body, &ctx.Message)
-
-		app.Execute(processor, ctx)
-
-		resp, _ := json.Marshal(ctx.Reply)
-
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(resp)
-	}
-}
-
 func (app *BaseApplication) Boot() (err error) {
-	flag.StringVar(&app.protocol, "protocol", HTTP, "HTTP or TCP")
-
 	app.Fire(BootEvent, app)
-
-	flag.Parse()
 
 	return
 }
 
 func (app *BaseApplication) Run(runner Runner) (err error) {
-	fmt.Printf("Running %s server at: %s\n", app.protocol, app.address)
-
 	if runner == nil {
 		runner := NewRunner(app.protocol)
 	}
-	runner.Attach(app)
-
 	if runner == nil {
-		return errors.New("Unrecognised protocol")
+		return fmt.Errorf("Unrecognised protocol: %s", app.protocol)
 	}
 
+	runner.Attach(app)
 	return runner.Run()
 }
 
@@ -134,4 +100,13 @@ func (app *BaseApplication) ExecuteProcessor(processor *Processor, ctx *Context,
 	return mids[0](app, ctx, func(c *Context) error {
 		return app.ExecuteProcessor(processor, c, mids[1:])
 	})
+}
+
+func (app *BaseApplication) Get(key string) (value interface{}, ok bool) {
+	value, ok = app.registry[key]
+	return
+}
+
+func (app *BaseApplication) Set(key string, value interface{}) {
+	app.registry[key] = value
 }

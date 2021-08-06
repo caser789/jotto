@@ -3,6 +3,6 @@ package motto
 import "github.com/gogo/protobuf/proto"
 
 type Context struct {
-	request  proto.Message
-	response protoMessage
+	Request  proto.Message
+	Response proto.Message
 }

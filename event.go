@@ -44,7 +44,7 @@ func (bus *EventBus) Fire(event Event, payload interface{}) {
 	listeners, ok := bus.listeners[event]
 
 	if ok {
-		for _, listener := range listenrs {
+		for _, listener := range listeners {
 			listener(payload)
 		}
 	}

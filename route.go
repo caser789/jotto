@@ -1,12 +1,12 @@
 package motto
 
 type Route struct {
-	id     int32
+	id     uint32
 	uri    string
 	method string
 }
 
-func (r *Route) ID() int32 {
+func (r *Route) ID() uint32 {
 	return r.id
 }
 
@@ -18,7 +18,7 @@ func (r *Route) Method() string {
 	return r.method
 }
 
-func NewRoute(id int32, uri string, method string) (route Route) {
+func NewRoute(id uint32, uri string, method string) (route Route) {
 	return Route{
 		id:     id,
 		uri:    uri,

@@ -6,13 +6,9 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
-	"time"
 
-	"github.com/caser789/jotto/hotline"
 	"github.com/gogo/protobuf/proto"
-	"github.com/gorilla/mux"
 )
 
 type Application interface {
@@ -21,7 +17,10 @@ type Application interface {
 	Boot() error
 	Run() error
 	Execute(*Processor, *Context)
+
 	Protocol() string
+	Address() string
+	Routes() map[Route]*Processor
 }
 
 const (
@@ -30,16 +29,15 @@ const (
 )
 
 var (
-	BootEvent  = NewEvent("jotto:boot")
-	PanicEvent = NewEvent("jotto:panic")
+	BootEvent  = NewEvent("motto:boot")
+	PanicEvent = NewEvent("motto:panic")
 )
 
 type BaseApplication struct {
 	protocol string
 	address  string
 	eventBus *EventBus
-	routes   map[uint32]*Processor
-	router   *mux.Router
+	routes   map[Route]*Processor
 }
 
 func NewApplication(protocol string, address string, routes map[Route]*Processor) Application {
@@ -47,16 +45,7 @@ func NewApplication(protocol string, address string, routes map[Route]*Processor
 		protocol: protocol,
 		address:  address,
 		eventBus: NewEventBus(),
-		routes:   make(map[uint32]*Processor),
-		router:   mux.NewRouter(),
-	}
-
-	for route, processor := range routes {
-		// Setup HTTP router
-		app.router.HandleFunc(route.URI(), app.MakeHandler(processor)).Methods(route.Method())
-
-		// Setup TCP router
-		app.routes[route.ID()] = processor
+		routes:   routes,
 	}
 
 	return app
@@ -64,6 +53,14 @@ func NewApplication(protocol string, address string, routes map[Route]*Processor
 
 func (app *BaseApplication) Protocol() string {
 	return app.protocol
+}
+
+func (app *BaseApplication) Address() string {
+	return app.address
+}
+
+func (app *BaseApplication) Routes() map[Route]*Processor {
+	return app.routes
 }
 
 func (app *BaseApplication) On(event Event, listener Listener) {
@@ -105,39 +102,21 @@ func (app *BaseApplication) Boot() (err error) {
 	app.Fire(BootEvent, app)
 
 	flag.Parse()
-	http.Handle("/", app.router)
 
 	return
 }
 
 func (app *BaseApplication) Run() (err error) {
 	fmt.Printf("Running %s server at: %s\n", app.protocol, app.address)
-	switch app.protocol {
-	case TCP:
-		// TODO: start the TCP server
-		listener, err := net.Listen("tcp", app.address)
 
-		if err != nil {
-			panic(err)
-		}
+	runner := NewRunner(app.protocol)
+	runner.Attach(app)
 
-		defer listener.Close()
-
-		for {
-			connection, err := listener.Accept()
-
-			if err != nil {
-				// TODO: log the error
-				continue
-			}
-
-			go app.tcpWorker(connection)
-		}
-	case HTTP:
-		return http.ListenAndServe(app.address, nil)
+	if runner == nil {
+		return errors.New("Unrecognised protocol")
 	}
 
-	return errors.New("Unrecognised protocol")
+	return runner.Run()
 }
 
 func (app *BaseApplication) Execute(processor *Processor, ctx *Context) {
@@ -153,47 +132,4 @@ func (app *BaseApplication) ExecuteProcessor(processor *Processor, ctx *Context,
 	return mids[0](app, ctx, func(c *Context) error {
 		return app.ExecuteProcessor(processor, c, mids[1:])
 	})
-}
-
-func (app *BaseApplication) tcpWorker(connection net.Conn) {
-	// TODO: move into configuration
-	timeout := time.Second * 10
-	line := hotline.NewHotline(connection, timeout)
-	defer line.Close()
-
-	for {
-		var kind uint32
-
-		kind, input, err := line.Read()
-
-		if err != nil {
-			// TODO: handle error
-			return
-		}
-
-		processor, exists := app.routes[kind]
-
-		if !exists {
-			// TODO: error response
-			continue
-		}
-
-		ctx := &Context{
-			MessageKind: kind,
-			Message:     proto.Clone(processor.Message),
-			Reply:       proto.Clone(processor.Reply),
-		}
-
-		proto.Unmarshal(input, ctx.Message)
-
-		app.Execute(processor, ctx)
-
-		output, err := proto.Marshal(ctx.Reply)
-
-		if err != nil {
-			// TODO: error response
-		}
-
-		line.Write(ctx.ReplyKind, output)
-	}
 }

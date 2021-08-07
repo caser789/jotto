@@ -15,7 +15,7 @@ func main() {
 	flag.StringVar(&recipe, "recipe", "conf/conf.xml", "The configuration file")
 	flag.Parse()
 
-	runner := motto.NewQueueWorkerRunner("default:main")
+	runner := motto.NewQueueWorkerRunner("default:main", 10)
 
 	cfg := common.NewConfiguration(recipe)
 

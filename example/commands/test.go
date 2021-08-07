@@ -36,6 +36,18 @@ func (i *Test) Run(app motto.Application, args []string) (err error) {
 
 	Q.Driver().Truncate("main")
 
+	for j := 0; j < 11; j++ {
+		job := &motto.Job{
+			Type:        2,
+			Payload:     fmt.Sprintf(`{"name": "%s", "age": 31}`, i.text),
+			Attempts:    0,
+			LastAttempt: 0,
+		}
+		Q.Enqueue(job)
+	}
+
+	return
+
 	job := &motto.Job{
 		Type:        1,
 		Payload:     fmt.Sprintf(`{"name": "%s", "age": 31}`, i.text),

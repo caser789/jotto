@@ -1,6 +1,7 @@
 package jotto
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -22,6 +24,7 @@ import (
 type Runner interface {
 	Attach(app Application) error
 	Run() error
+	Shutdown(timeout time.Duration) error
 }
 
 // NewRunner creates a Runner according to the given `protocol`.
@@ -35,6 +38,8 @@ func NewRunner(protocol string) (runner Runner) {
 	case TCP:
 		runner = &TcpRunner{
 			routes: make(map[uint32]Processor),
+			alive:  true,
+			wg:     &sync.WaitGroup{},
 		}
 		return runner
 	}
@@ -49,13 +54,33 @@ type HttpHandler func(http.ResponseWriter, *http.Request)
 type HttpRunner struct {
 	app    Application
 	router *mux.Router
+	server *http.Server
 }
 
 // Run runs the application in HTTP mode
 func (r *HttpRunner) Run() error {
 	fmt.Printf("Running %s server at %s\n", r.app.Protocol(), r.app.Address())
-	http.Handle("/", r.router)
-	return http.ListenAndServe(r.app.Address(), nil)
+
+	r.server = &http.Server{
+		Addr: r.app.Address(),
+		// Good practice to set timeouts to avoid Slowloris attacks.
+		WriteTimeout: time.Second * 10,
+		ReadTimeout:  time.Second * 10,
+		IdleTimeout:  time.Second * 30,
+		Handler:      r.router, // Pass our instance of gorilla/mux in.
+	}
+
+	return r.server.ListenAndServe()
+}
+
+// Shutdown shuts down the HTTP server
+func (r *HttpRunner) Shutdown(timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	// Wait for existing requests to finish (with a 5-second timeout)
+	r.server.Shutdown(ctx)
+	return fmt.Errorf("Shutting down")
 }
 
 // Attach binds the appliation to the runner and initializes the HTTP router.
@@ -126,6 +151,8 @@ func (r *HttpRunner) handler(processor Processor, app Application) HttpHandler {
 type TcpRunner struct {
 	app    Application
 	routes map[uint32]Processor
+	alive  bool
+	wg     *sync.WaitGroup
 }
 
 // Attach binds the application to the runner and initializes the TCP router
@@ -154,7 +181,7 @@ func (r *TcpRunner) Run() (err error) {
 
 	defer listener.Close()
 
-	for {
+	for r.alive {
 		connection, err := listener.Accept()
 
 		if err != nil {
@@ -162,11 +189,34 @@ func (r *TcpRunner) Run() (err error) {
 			continue
 		}
 
+		r.wg.Add(1)
 		go r.worker(connection)
+	}
+
+	return
+}
+
+// Shutdown shuts down the TCP server
+func (r *TcpRunner) Shutdown(timeout time.Duration) error {
+	r.alive = false // Signal listener to stop accepting new connections; workers to exit.
+
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		r.wg.Wait()
+	}()
+
+	// Wait for existing requests to finish for up to `timeout`.
+	select {
+	case <-c:
+		return nil
+	case <-time.After(timeout):
+		return fmt.Errorf("Shutdown wait timeout")
 	}
 }
 
 func (r *TcpRunner) worker(connection net.Conn) {
+	defer r.wg.Done()
 	defer connection.Close()
 
 	// TODO: move into configuration
@@ -174,7 +224,7 @@ func (r *TcpRunner) worker(connection net.Conn) {
 	line := hotline.NewHotline(connection, timeout)
 	defer line.Close()
 
-	for {
+	for r.alive {
 		var kind uint32
 
 		logger := r.app.MakeLogger(map[string]interface{}{
@@ -284,6 +334,10 @@ func (r *CliRunner) Run() (err error) {
 	return
 }
 
+func (r *CliRunner) Shutdown(timeout time.Duration) error {
+	return nil
+}
+
 func (r *CliRunner) help() {
 	fmt.Printf("Usage: %s -<command-name> ...<flags> ...<args>    To run a command\n", os.Args[0])
 	fmt.Printf("       %s -<command-name> -h                      To get usage information of a specific command\n\n", os.Args[0])
@@ -294,6 +348,7 @@ func NewQueueWorkerRunner(driver string, queue string) *QueueWorkerRunner {
 	return &QueueWorkerRunner{
 		driver: driver,
 		queue:  queue,
+		alive:  true,
 	}
 }
 
@@ -301,6 +356,7 @@ type QueueWorkerRunner struct {
 	app    Application
 	driver string
 	queue  string
+	alive  bool
 }
 
 func (r *QueueWorkerRunner) Attach(app Application) error {
@@ -312,7 +368,7 @@ func (r *QueueWorkerRunner) Attach(app Application) error {
 func (r *QueueWorkerRunner) Run() error {
 	queue := r.app.Queue(r.driver)
 
-	for {
+	for r.alive {
 		logger := r.app.MakeLogger(map[string]interface{}{
 			"trace_id": GenerateTraceID(),
 		})
@@ -349,5 +405,10 @@ func (r *QueueWorkerRunner) Run() error {
 		logger.Data("Done processing job: %+v", job)
 	}
 
+	return nil
+}
+
+func (r *QueueWorkerRunner) Shutdown(timeout time.Duration) error {
+	r.alive = false
 	return nil
 }

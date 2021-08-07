@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 // Application is an abstraction of a runnable application in Motto.
@@ -12,7 +13,8 @@ type Application interface {
 	On(Event, Listener)
 	Fire(Event, ...interface{})
 	Boot() error
-	Run(Runner) error
+	Run() error
+	Shutdown(timeout time.Duration) error
 	Execute(Processor, Context)
 
 	Protocol() string
@@ -49,6 +51,9 @@ var (
 	// ReloadEvent is fired when the application configuration is reloaded
 	ReloadEvent = NewEvent("motto:reload")
 
+	// TerminateEvent is fired when the application will start to terminate
+	TerminateEvent = NewEvent("motto:terminate")
+
 	// PanicEvent is fired when a non-recoverable error happened
 	PanicEvent = NewEvent("motto:panic")
 
@@ -70,10 +75,12 @@ type BaseApplication struct {
 	cache map[string]CacheDriver
 	queue map[string]QueueDriver
 	jobs  map[int]QueueProcessor
+
+	runner Runner
 }
 
 // NewApplication creates a new application.
-func NewApplication(settings Configuration, routes map[Route]Processor, jobs map[int]QueueProcessor) Application {
+func NewApplication(settings Configuration, routes map[Route]Processor, jobs map[int]QueueProcessor, runner Runner) Application {
 	app := &BaseApplication{
 		eventBus:       NewEventBus(),
 		routes:         routes,
@@ -84,6 +91,10 @@ func NewApplication(settings Configuration, routes map[Route]Processor, jobs map
 		cache:          make(map[string]CacheDriver),
 		queue:          make(map[string]QueueDriver),
 		jobs:           jobs,
+	}
+
+	if runner != nil {
+		app.runner = runner
 	}
 
 	return app
@@ -186,17 +197,23 @@ func (app *BaseApplication) Boot() (err error) {
 }
 
 // Run starts running the appliation and serving incoming requests
-func (app *BaseApplication) Run(runner Runner) (err error) {
-	if runner == nil {
-		runner = NewRunner(app.protocol)
+func (app *BaseApplication) Run() (err error) {
+	if app.runner == nil {
+		app.runner = NewRunner(app.protocol)
 	}
-
-	if runner == nil {
+	if app.runner == nil {
 		return fmt.Errorf("Unrecognised protocol: %s", app.protocol)
 	}
 
-	runner.Attach(app)
-	return runner.Run()
+	app.runner.Attach(app)
+
+	return app.runner.Run()
+}
+
+// Shutdown shuts down the application
+func (app *BaseApplication) Shutdown(timeout time.Duration) (err error) {
+	app.Fire(TerminateEvent, app)
+	return app.runner.Shutdown(timeout)
 }
 
 // Execute executes a processor

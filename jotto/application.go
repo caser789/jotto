@@ -2,6 +2,7 @@ package jotto
 
 import (
 	"fmt"
+	"net"
 	"time"
 )
 
@@ -32,6 +33,9 @@ type Application interface {
 
 	Cache(name string) CacheDriver
 	Queue(name string) *Queue
+
+	GetListener() (net.Listener, error)
+	SetListener(net.Listener)
 }
 
 const (
@@ -74,7 +78,8 @@ type BaseApplication struct {
 	queue map[string]*Queue
 	jobs  map[int]QueueProcessor
 
-	runner Runner
+	listener net.Listener
+	runner   Runner
 }
 
 // NewApplication creates a new application.
@@ -241,6 +246,22 @@ func (app *BaseApplication) Queue(name string) *Queue {
 		return q
 	}
 	return nil
+}
+
+func (app *BaseApplication) GetListener() (listener net.Listener, err error) {
+	if app.listener != nil {
+		return app.listener, nil
+	} else {
+		app.listener, err = net.Listen("tcp", app.address)
+	}
+
+	fmt.Println("listener is:", app.listener, err)
+
+	return app.listener, err
+}
+
+func (app *BaseApplication) SetListener(listener net.Listener) {
+	app.listener = listener
 }
 
 // Initialize external services such as cache, queue

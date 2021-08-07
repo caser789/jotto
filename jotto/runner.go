@@ -58,7 +58,7 @@ type HttpRunner struct {
 }
 
 // Run runs the application in HTTP mode
-func (r *HttpRunner) Run() error {
+func (r *HttpRunner) Run() (err error) {
 	fmt.Printf("Running %s server at %s\n", r.app.Protocol(), r.app.Address())
 
 	r.server = &http.Server{
@@ -70,7 +70,13 @@ func (r *HttpRunner) Run() error {
 		Handler:      r.router, // Pass our instance of gorilla/mux in.
 	}
 
-	return r.server.ListenAndServe()
+	listener, err := r.app.GetListener()
+
+	if err != nil {
+		return err
+	}
+
+	return r.server.Serve(listener)
 }
 
 // Shutdown shuts down the HTTP server
@@ -172,7 +178,7 @@ func (r *TcpRunner) Run() (err error) {
 	logger := r.app.MakeLogger(nil)
 	logger.Debug("Running %s server at %s", r.app.Protocol(), r.app.Address())
 
-	listener, err := net.Listen("tcp", r.app.Address())
+	listener, err := r.app.GetListener()
 
 	if err != nil {
 		logger.Fatal("Failed to listen on (%s//%s). (error=%v)", r.app.Protocol(), r.app.Address(), err)

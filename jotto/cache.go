@@ -84,6 +84,26 @@ func (rd *RedisDriver) Enqueue(queue string, job *Job) (err error) {
 	return
 }
 
+// Schedule pushes a new job into the delayed queue so that it will be processed at a later time.
+func (rd *RedisDriver) Schedule(queue string, job *Job, at time.Time) (err error) {
+	if job.TraceID == "" {
+		job.TraceID = GenerateTraceID()
+	}
+
+	lua := `
+		local queue = KEYS[1]
+		local uuid  = KEYS[2]
+		local job   = ARGV[1]
+		local score = ARGV[2]
+
+		redis.call("hset", queue..":backlog", uuid, job)
+		return redis.call("zadd", queue..":delayed", score, uuid)
+	`
+
+	_, err = rd.client.Eval(lua, []string{queue, job.TraceID}, job.Serialize(), at.Unix()).Result()
+	return
+}
+
 // Dequeue retrieves a job from the queue
 func (rd *RedisDriver) Dequeue(queue string) (job *Job, err error) {
 	/*
@@ -113,15 +133,7 @@ func (rd *RedisDriver) Dequeue(queue string) (job *Job, err error) {
 func (rd *RedisDriver) Attempt(queue string, job *Job) (err error) {
 	job.Attempt()
 
-	ok, err := rd.client.HSet(rd.key(queue, "backlog"), job.TraceID, job.Serialize()).Result()
-
-	if err != nil {
-		return
-	}
-
-	if !ok {
-		return fmt.Errorf("Update queue backlog failed (queue=%s,job=%s)", queue, job.TraceID)
-	}
+	_, err = rd.client.HSet(rd.key(queue, "backlog"), job.TraceID, job.Serialize()).Result()
 
 	return
 }

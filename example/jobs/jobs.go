@@ -21,8 +21,6 @@ func ProcessTestJob(Q *motto.Queue, job *motto.Job, app motto.Application, logge
 
 	json.Unmarshal([]byte(job.Payload), author)
 
-	panic(errors.New("omg"))
-
 	if job.Attempts < 3 {
 		logger.Error("Job attempts (%d) < 3, fail", job.Attempts)
 		return errors.New("fail")

@@ -43,6 +43,12 @@ func (i *Test) Run(app motto.Application, args []string) (err error) {
 		LastAttempt: 0,
 	}
 
+	err = Q.Schedule(job, time.Now().Add(time.Second*10))
+
+	fmt.Println("schedule", err)
+
+	return
+
 	err = Q.Enqueue(job)
 
 	fmt.Println("enqueue", err)

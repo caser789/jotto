@@ -63,6 +63,9 @@ type QueueDriver interface {
 	// Send a job to queue
 	Enqueue(queue string, job *Job) error
 
+	// Schedule a job at a future time
+	Schedule(queue string, job *Job, at time.Time) error
+
 	// Retrieve jobs from queue
 	Dequeue(queue string) (*Job, error)
 
@@ -125,6 +128,11 @@ func (q *Queue) Driver() QueueDriver {
 // Enqueue sends a job to queue
 func (q *Queue) Enqueue(job *Job) error {
 	return q.driver.Enqueue(q.name, job)
+}
+
+// Schedule a job to run at a future time
+func (q *Queue) Schedule(job *Job, at time.Time) error {
+	return q.driver.Schedule(q.name, job, at)
 }
 
 // Dequeue retrieves a job from queue

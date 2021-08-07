@@ -10,7 +10,7 @@ import (
 // Application is an abstraction of a runnable application in Motto.
 type Application interface {
 	On(Event, Listener)
-	Fire(Event, interface{})
+	Fire(Event, ...interface{})
 	Boot() error
 	Run(Runner) error
 	Execute(Processor, Context)
@@ -99,8 +99,8 @@ func (app *BaseApplication) On(event Event, listener Listener) {
 }
 
 // Fire fires an event with payload
-func (app *BaseApplication) Fire(event Event, payload interface{}) {
-	app.eventBus.Fire(event, payload)
+func (app *BaseApplication) Fire(event Event, payload ...interface{}) {
+	app.eventBus.Fire(event, payload...)
 }
 
 // Get retrieves an entry from the application's registry

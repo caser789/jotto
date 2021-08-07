@@ -50,12 +50,12 @@ func (bus *EventBus) On(event Event, listener Listener) {
 
 // Fire emits an `event` with a `payload`.
 // All listeners registered under this event will be called syncronously.
-func (bus *EventBus) Fire(event Event, payload interface{}) {
+func (bus *EventBus) Fire(event Event, payload ...interface{}) {
 	listeners, ok := bus.listeners[event]
 
 	if ok {
 		for _, listener := range listeners {
-			listener(payload)
+			listener(payload...)
 		}
 	}
 }

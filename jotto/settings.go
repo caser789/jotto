@@ -1,8 +1,9 @@
-package motto
+package jotto
 
-// CoreSettings is an interface that application's custom settings struct must conform to.
-type CoreSettings interface {
+// Configuration is an interface that application's custom settings struct must conform to.
+type Configuration interface {
 	Motto() *Settings
+	Load() error
 }
 
 type Settings struct {

@@ -3,13 +3,16 @@ package common
 import (
 	"fmt"
 
+	"git.garena.com/common/gocommon"
 	"git.garena.com/duanzy/motto/motto"
 	pb "git.garena.com/duanzy/motto/sample/protocol"
 	"git.garena.com/lixh/goorm"
 )
 
-func Boot(application interface{}) {
-	app := application.(motto.Application)
+func Boot(payloads ...interface{}) {
+	// Initialise the logger
+	gocommon.LoggerInit("log/upper.log", 86400, 1000*1000*1000, 30, 3)
+	app := payloads[0].(motto.Application)
 
 	logger := app.MakeLogger(nil)
 	goorm.Pls_Go_Get_Orm_Lib_V2_40()
@@ -34,6 +37,10 @@ func Boot(application interface{}) {
 		fmt.Println("Error setting up ORM: ", err)
 		return
 	}
+}
+
+func Reload(payloads ...interface{}) {
+	fmt.Println("Application is reloaded, do something")
 }
 
 func ContextFactory(processor motto.Processor, ctx *motto.BaseContext) motto.Context {

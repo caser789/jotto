@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 
-	"git.garena.com/common/gocommon"
 	"github.com/caser789/jotto/example/common"
 	"github.com/caser789/jotto/example/routes"
 	"github.com/caser789/jotto/jotto"
@@ -16,10 +15,7 @@ func main() {
 	flag.StringVar(&recipe, "recipe", "conf/conf.xml", "The configuration file")
 	flag.Parse()
 
-	cfg := common.LoadCfg(recipe)
-
-	// Initialise the logger
-	gocommon.LoggerInit("log/upper.log", 86400, 1000*1000*1000, 30, 3)
+	cfg := common.NewConfiguration(recipe)
 
 	// Create application instance
 	app := motto.NewApplication(cfg, routes.Routes)
@@ -30,6 +26,7 @@ func main() {
 
 	// Register boot event listener
 	app.On(motto.BootEvent, common.Boot)
+	app.On(motto.ReloadEvent, common.Reload)
 
 	// Boot the application
 	app.Boot()

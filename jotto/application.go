@@ -2,6 +2,9 @@ package jotto
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 // Application is an abstraction of a runnable application in Motto.
@@ -18,7 +21,7 @@ type Application interface {
 
 	Get(string) (interface{}, bool)
 	Set(string, interface{})
-	Settings() CoreSettings
+	Settings() Configuration
 
 	SetContextFactory(ContextFactory)
 	MakeContext(Processor, *BaseContext) Context
@@ -39,6 +42,9 @@ var (
 	// BootEvent is fired when the application boots (i.e. When the Boot method is called)
 	BootEvent = NewEvent("motto:boot")
 
+	// ReloadEvent is fired when the application configuration is reloaded
+	ReloadEvent = NewEvent("motto:reload")
+
 	// PanicEvent is fired when a non-recoverable error happened
 	PanicEvent = NewEvent("motto:panic")
 
@@ -53,16 +59,14 @@ type BaseApplication struct {
 	eventBus       *EventBus
 	routes         map[Route]Processor
 	registry       map[string]interface{}
-	settings       CoreSettings
+	settings       Configuration
 	contextFactory ContextFactory
 	loggerFactory  LoggerFactory
 }
 
 // NewApplication creates a new application.
-func NewApplication(settings CoreSettings, routes map[Route]Processor) Application {
+func NewApplication(settings Configuration, routes map[Route]Processor) Application {
 	app := &BaseApplication{
-		protocol:       settings.Motto().Protocol,
-		address:        settings.Motto().Address,
 		eventBus:       NewEventBus(),
 		routes:         routes,
 		registry:       make(map[string]interface{}),
@@ -111,7 +115,7 @@ func (app *BaseApplication) Set(key string, value interface{}) {
 }
 
 // Settings returns the settings of the application
-func (app *BaseApplication) Settings() CoreSettings {
+func (app *BaseApplication) Settings() Configuration {
 	return app.settings
 }
 
@@ -137,7 +141,28 @@ func (app *BaseApplication) MakeLogger(c LoggerContext) Logger {
 
 // Boot initializes the application
 func (app *BaseApplication) Boot() (err error) {
+	// Load configuration
+	app.settings.Load()
+
+	app.protocol = app.settings.Motto().Protocol
+	app.address = app.settings.Motto().Address
+
+	app.On(ReloadEvent, app.Reload)
+
+	// Fire boot event
 	app.Fire(BootEvent, app)
+
+	// Listen for reload signal
+	s := make(chan os.Signal, 1)
+	signal.Notify(s, syscall.SIGUSR2)
+
+	go func() {
+		for {
+			<-s
+			app.settings.Load()
+			app.Fire(ReloadEvent, app)
+		}
+	}()
 
 	return
 }
@@ -171,4 +196,7 @@ func (app *BaseApplication) ExecuteProcessor(processor Processor, ctx Context, m
 	return mids[0](app, ctx, func(c Context) error {
 		return app.ExecuteProcessor(processor, c, mids[1:])
 	})
+}
+
+func (app *BaseApplication) Reload(payloads ...interface{}) {
 }

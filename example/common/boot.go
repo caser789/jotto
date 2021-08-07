@@ -43,6 +43,10 @@ func Reload(payloads ...interface{}) {
 	fmt.Println("Application is reloaded, do something")
 }
 
+func Terminate(payloads ...interface{}) {
+	fmt.Println("Application is terminating")
+}
+
 func ContextFactory(processor motto.Processor, ctx *motto.BaseContext) motto.Context {
 	p := processor.(*Processor)
 

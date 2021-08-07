@@ -7,6 +7,9 @@ enum MSG_KIND
 
     REQ_TEXT   = 102;
     RESP_TEXT  = 103;
+
+    REQ_WAIT   = 104;
+    RESP_WAIT  = 105;
 }
 
 message ReqCommon {
@@ -34,6 +37,15 @@ message ReqAbout {
 message RespAbout {
     optional string request_id = 1;
     optional string about = 2;
+}
+
+message ReqWait {
+    optional string request_id = 1;
+    optional int32  seconds = 2;
+}
+
+message RespWait {
+    optional string request_id = 1;
 }
 
 // Models

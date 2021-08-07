@@ -2,11 +2,10 @@ package main
 
 import (
 	"flag"
-	"fmt"
 
-	"github.com/caser789/jotto/example/common"
-	"github.com/caser789/jotto/example/routes"
-	"github.com/caser789/jotto/jotto"
+	"git.garena.com/duanzy/motto/motto"
+	"git.garena.com/duanzy/motto/sample/common"
+	"git.garena.com/duanzy/motto/sample/routes"
 )
 
 func main() {
@@ -18,7 +17,7 @@ func main() {
 	cfg := common.NewConfiguration(recipe)
 
 	// Create application instance
-	app := motto.NewApplication(cfg, routes.Routes, nil)
+	app := motto.NewApplication(cfg, routes.Routes, nil, nil)
 
 	// Set logger and context factory
 	app.SetLoggerFactory(common.NewCommonLogger)
@@ -27,10 +26,9 @@ func main() {
 	// Register boot event listener
 	app.On(motto.BootEvent, common.Boot)
 	app.On(motto.ReloadEvent, common.Reload)
+	app.On(motto.TerminateEvent, common.Terminate)
 
-	// Boot the application
-	app.Boot()
+	soul := motto.NewSoul([]motto.Application{app})
 
-	// Start serving
-	fmt.Println(app.Run(nil))
+	soul.Serve()
 }

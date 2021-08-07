@@ -342,17 +342,25 @@ func (r *CliRunner) help() {
 	r.bus.Print()
 }
 
-func NewQueueWorkerRunner(queue string) *QueueWorkerRunner {
+func NewQueueWorkerRunner(queue string, size int) *QueueWorkerRunner {
+	workers := make(chan bool, size)
+
+	for i := 0; i < size; i++ {
+		workers <- true
+	}
+
 	return &QueueWorkerRunner{
-		queue: queue,
-		alive: true,
+		queue:   queue,
+		alive:   true,
+		workers: workers,
 	}
 }
 
 type QueueWorkerRunner struct {
-	app   Application
-	queue string
-	alive bool
+	app     Application
+	queue   string
+	alive   bool
+	workers chan bool
 }
 
 func (r *QueueWorkerRunner) Attach(app Application) error {
@@ -371,12 +379,23 @@ func (r *QueueWorkerRunner) Run() error {
 			"trace_id": GenerateTraceID(),
 		})
 
+		select {
+		case <-r.workers:
+			// Available worker obtained, let's move on.
+			// NOTE: remember to release the worker when done.
+		case <-time.After(time.Second * 2):
+			// Timeout after 2 seconds to prevent blocking forever.
+			logger.Trace("Failed to get hold of an available worker. Giving up.")
+			continue
+		}
+
 		job, err := Q.Dequeue()
 
 		if err != nil {
 			if err != redis.Nil {
 				logger.Error("Pop job error: %v", err)
 			}
+			r.workers <- true // Replenish available workers pool
 			continue
 		}
 
@@ -389,6 +408,7 @@ func (r *QueueWorkerRunner) Run() error {
 		if !ok {
 			logger.Error("Job processor not found for job %s", job.TraceID)
 			Q.Fail(job)
+			r.workers <- true // Replenish available workers pool
 			continue
 		}
 
@@ -445,6 +465,8 @@ func (r *QueueWorkerRunner) process(processor QueueProcessor, job *Job, app Appl
 
 			logger.Data("Queue: action=%s, err=%v, job: %s", action, err, job.TraceID)
 		}
+
+		r.workers <- true // Replenish available workers pool
 	}()
 
 	// Execute the job processor

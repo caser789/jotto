@@ -379,12 +379,8 @@ func (r *QueueWorkerRunner) Run() error {
 			"trace_id": GenerateTraceID(),
 		})
 
-		select {
-		case <-r.workers:
-			// Available worker obtained, let's move on.
-			// NOTE: remember to release the worker when done.
-		case <-time.After(time.Second * 2):
-			// Timeout after 2 seconds to prevent blocking forever.
+		ok := r.acquire(time.Second * 2)
+		if !ok {
 			logger.Trace("Failed to get hold of an available worker. Giving up.")
 			continue
 		}
@@ -395,7 +391,7 @@ func (r *QueueWorkerRunner) Run() error {
 			if err != redis.Nil {
 				logger.Error("Pop job error: %v", err)
 			}
-			r.workers <- true // Replenish available workers pool
+			r.release()
 			continue
 		}
 
@@ -408,7 +404,7 @@ func (r *QueueWorkerRunner) Run() error {
 		if !ok {
 			logger.Error("Job processor not found for job %s", job.TraceID)
 			Q.Fail(job)
-			r.workers <- true // Replenish available workers pool
+			r.release()
 			continue
 		}
 
@@ -416,6 +412,26 @@ func (r *QueueWorkerRunner) Run() error {
 	}
 
 	return nil
+}
+
+// Acquire a worker from pool
+func (r *QueueWorkerRunner) acquire(timeout time.Duration) bool {
+	select {
+	case <-r.workers:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
+}
+
+// Release a worker to pool
+func (r *QueueWorkerRunner) release() bool {
+	select {
+	case r.workers <- true:
+		return true
+	default:
+		return false
+	}
 }
 
 func (r *QueueWorkerRunner) process(processor QueueProcessor, job *Job, app Application, logger Logger, Q *Queue) (err error) {
@@ -466,7 +482,10 @@ func (r *QueueWorkerRunner) process(processor QueueProcessor, job *Job, app Appl
 			logger.Data("Queue: action=%s, err=%v, job: %s", action, err, job.TraceID)
 		}
 
-		r.workers <- true // Replenish available workers pool
+		ok := r.release()
+		if !ok {
+			logger.Error("Queue: worker pool full, cannot release worker. Terminate without replenishing the pool.")
+		}
 	}()
 
 	// Execute the job processor

@@ -99,10 +99,10 @@ func (rd *RedisDriver) Schedule(queue string, job *Job, at time.Time) (err error
 	 * ARGV[1] = job
 	 * ARGV[2] = score
 	 */
-	lua := `
+	script := redis.NewScript(`
 		redis.call("hset", KEYS[1], KEYS[3], ARGV[1])
 		return redis.call("zadd", KEYS[2], ARGV[2], KEYS[3])
-	`
+	`)
 
 	keys := []string{rd.key(queue, "backlog"), rd.key(queue, "delayed"), job.TraceID}
 	argv := []interface{}{job.Serialize(), at.Unix()}
@@ -110,7 +110,7 @@ func (rd *RedisDriver) Schedule(queue string, job *Job, at time.Time) (err error
 	fmt.Println(keys)
 	fmt.Println(argv)
 
-	_, err = rd.client.Eval(lua, keys, argv...).Result()
+	_, err = script.Run(rd.client, keys, argv...).Result()
 	return
 }
 
@@ -155,12 +155,12 @@ func (rd *RedisDriver) Requeue(queue string, job *Job) (err error) {
 	 * KEYS[2] = pending
 	 * ARGV[1] = uuid
 	 */
-	lua := `
+	script := redis.NewScript(`
 		redis.call('lrem', KEYS[1], 0, ARGV[1])
 		return redis.call('lpush', KEYS[2], ARGV[1])
-	`
+	`)
 
-	_, err = rd.client.Eval(lua, []string{rd.key(queue, "working"), rd.key(queue, "pending")}, job.TraceID).Result()
+	_, err = script.Run(rd.client, []string{rd.key(queue, "working"), rd.key(queue, "pending")}, job.TraceID).Result()
 
 	return
 }
@@ -172,12 +172,12 @@ func (rd *RedisDriver) Complete(queue string, job *Job) (err error) {
 	 * KEYS[2] = backlog
 	 * ARGV[1] = uuid
 	 */
-	lua := `
+	script := redis.NewScript(`
 		redis.call('lrem', KEYS[1], 0, ARGV[1])
 		return redis.call('hdel', KEYS[2], ARGV[1])
-	`
+	`)
 
-	_, err = rd.client.Eval(lua, []string{rd.key(queue, "working"), rd.key(queue, "backlog")}, job.TraceID).Result()
+	_, err = script.Run(rd.client, []string{rd.key(queue, "working"), rd.key(queue, "backlog")}, job.TraceID).Result()
 
 	return
 }
@@ -190,12 +190,12 @@ func (rd *RedisDriver) Defer(queue string, job *Job, after time.Duration) (err e
 	 * ARGV[1] = uuid
 	 * ARGV[2] = score
 	 */
-	lua := `
+	script := redis.NewScript(`
 		redis.call('lrem', KEYS[1], 0, ARGV[1])
 		return redis.call('zadd', KEYS[2], ARGV[2], ARGV[1])
-	`
+	`)
 
-	_, err = rd.client.Eval(lua, []string{rd.key(queue, "working"), rd.key(queue, "delayed")}, job.TraceID, time.Now().Add(after).Unix()).Result()
+	_, err = script.Run(rd.client, []string{rd.key(queue, "working"), rd.key(queue, "delayed")}, job.TraceID, time.Now().Add(after).Unix()).Result()
 	return
 }
 
@@ -206,12 +206,12 @@ func (rd *RedisDriver) Fail(queue string, job *Job) (err error) {
 	 * KEYS[2] = failure
 	 * ARGV[1] = uuid
 	 */
-	lua := `
+	script := redis.NewScript(`
 		redis.call('lrem', KEYS[1], 0, ARGV[1])
 		return redis.call('lpush', KEYS[2], ARGV[1])
-	`
+	`)
 
-	_, err = rd.client.Eval(lua, []string{rd.key(queue, "working"), rd.key(queue, "failure")}, job.TraceID).Result()
+	_, err = script.Run(rd.client, []string{rd.key(queue, "working"), rd.key(queue, "failure")}, job.TraceID).Result()
 	return
 }
 
@@ -244,7 +244,7 @@ func (rd *RedisDriver) Stats(queue string) (stats *QueueStats, err error) {
 	 * KEYS[5] = delayed
 	 * ARGV[1] = now
 	 */
-	lua := `
+	script := redis.NewScript(`
 		local pending = redis.call('llen', KEYS[1])
 		local working = redis.call('llen', KEYS[2])
 		local failure = redis.call('llen', KEYS[3])
@@ -253,7 +253,7 @@ func (rd *RedisDriver) Stats(queue string) (stats *QueueStats, err error) {
 		local waiting = redis.call('zcount', KEYS[5], '-inf', ARGV[1])
 
 		return {pending, working, failure, delayed, backlog, waiting}
-	`
+	`)
 
 	keys := []string{
 		rd.key(queue, "pending"),
@@ -263,7 +263,7 @@ func (rd *RedisDriver) Stats(queue string) (stats *QueueStats, err error) {
 		rd.key(queue, "delayed"),
 	}
 
-	result, err := rd.client.Eval(lua, keys, time.Now().Unix()).Result()
+	result, err := script.Run(rd.client, keys, time.Now().Unix()).Result()
 
 	if err != nil {
 		return

@@ -1,6 +1,7 @@
 package jotto
 
 import (
+	"flag"
 	"fmt"
 	"sort"
 	"strings"
@@ -27,7 +28,7 @@ type Command interface {
 	//  - register command line flags.
 	// Note, you don't need to run `flag.Parse()` here. Flags will
 	// be parsed for you after `Boot()` is called.
-	Boot() error
+	Boot(flagSet *flag.FlagSet) error
 
 	// Run will be called when all initialization are done, i.e. after `Boot()`.
 	//  - app: the bootstraped wallet server Application instance;

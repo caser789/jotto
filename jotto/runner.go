@@ -255,19 +255,20 @@ func (r *CliRunner) Run() (err error) {
 	name := os.Args[1]
 
 	// 2. Find command in the bus
-	command, err := r.bus.Find(name[1:])
+	command, err := r.bus.Find(name)
 
 	if err != nil {
 		r.help()
 		return
 	}
 
-	flag.Bool(command.Name(), true, "command name")
+	// flag.Bool(command.Name(), true, "command name")
+	flagSet := flag.NewFlagSet(command.Name(), flag.ExitOnError)
 
 	// 3. Run command initializations.
-	command.Boot()
+	command.Boot(flagSet)
 
-	flag.Parse()
+	flagSet.Parse(os.Args[2:])
 
 	r.app.Boot()
 
@@ -333,7 +334,8 @@ func (r *QueueWorkerRunner) Run() error {
 
 		if err != nil {
 			logger.Error("Job failed with error: %v. Requeue.", err)
-			job.Attempts += 1
+			job.Attempts++
+			job.LastAttempt = time.Now().UnixNano()
 			queue.Push(r.queue, job)
 		}
 

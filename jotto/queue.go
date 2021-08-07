@@ -7,8 +7,8 @@ import (
 type Job struct {
 	Type        int
 	Payload     string
-	Attempts    int
-	LastAttempt int
+	Attempts    int64
+	LastAttempt int64
 }
 
 func (job *Job) String() string {

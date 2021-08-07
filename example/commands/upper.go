@@ -6,9 +6,9 @@ import (
 	"net"
 	"time"
 
-	pb "github.com/caser789/jotto/example/protocol"
-	"github.com/caser789/jotto/hotline"
-	"github.com/caser789/jotto/jotto"
+	"git.garena.com/duanzy/motto/hotline"
+	"git.garena.com/duanzy/motto/motto"
+	pb "git.garena.com/duanzy/motto/sample/protocol"
 	"github.com/gogo/protobuf/proto"
 )
 
@@ -35,8 +35,8 @@ func (i *Upper) Description() string {
 	return "Upper calls the upper API provided by the sample server"
 }
 
-func (i *Upper) Boot() (err error) {
-	flag.StringVar(&i.text, "text", "test", "The text you want to convert to uppercase")
+func (i *Upper) Boot(flagSet *flag.FlagSet) (err error) {
+	flagSet.StringVar(&i.text, "text", "test", "The text you want to convert to uppercase")
 
 	return
 }

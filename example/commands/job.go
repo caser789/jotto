@@ -24,8 +24,8 @@ func (i *Job) Description() string {
 	return "Job enqueues an async job to the queue"
 }
 
-func (i *Job) Boot() (err error) {
-	flag.StringVar(&i.text, "text", "Zhiyan", "Part of the test payload")
+func (i *Job) Boot(flagSet *flag.FlagSet) (err error) {
+	flagSet.StringVar(&i.text, "text", "Zhiyan", "Part of the test payload")
 
 	return
 }

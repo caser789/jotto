@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/caser789/jotto/jotto"
+	"git.garena.com/duanzy/motto/motto"
 )
 
 type Quote struct {
@@ -17,6 +17,7 @@ type Inspire struct {
 	motto.BaseCommand
 	number *int
 	quotes []*Quote
+	cmd    *flag.FlagSet
 }
 
 func NewInspire() *Inspire {
@@ -45,7 +46,8 @@ func (i *Inspire) Description() string {
 }
 
 func (i *Inspire) Boot() (err error) {
-	i.number = flag.Int("number", 1, "Which inspirational quote to display (1-10).")
+	i.cmd = flag.NewFlagSet(i.Name(), flag.ExitOnError)
+	i.number = i.cmd.Int("number", 1, "Which inspirational quote to display (1-10).")
 
 	return
 }

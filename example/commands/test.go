@@ -32,9 +32,9 @@ func (i *Test) Boot(flagSet *flag.FlagSet) (err error) {
 }
 
 func (i *Test) Run(app motto.Application, args []string) (err error) {
-	Q := app.Queue("default")
+	Q := app.Queue("default:main")
 
-	Q.Truncate("queue")
+	Q.Driver().Truncate("queue")
 
 	job := &motto.Job{
 		Type:        1,
@@ -43,23 +43,23 @@ func (i *Test) Run(app motto.Application, args []string) (err error) {
 		LastAttempt: 0,
 	}
 
-	err = Q.Enqueue("queue", job)
+	err = Q.Enqueue(job)
 
 	fmt.Println("enqueue", err)
 
-	job, err = Q.Dequeue("queue")
+	job, err = Q.Dequeue()
 
 	fmt.Println("dequeue", err, job)
 
-	err = Q.Requeue("queue", job)
+	err = Q.Requeue(job)
 
 	fmt.Println("requeue", err)
 
-	job, err = Q.Dequeue("queue")
+	job, err = Q.Dequeue()
 
 	fmt.Println("dequeue", err, job)
 
-	err = Q.Defer("queue", job, time.Duration(1)*time.Second*10)
+	err = Q.Defer(job, time.Duration(1)*time.Second*10)
 
 	fmt.Println("defer", err)
 

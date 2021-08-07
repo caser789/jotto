@@ -31,7 +31,7 @@ type Application interface {
 	MakeLogger(LoggerContext) Logger
 
 	Cache(name string) CacheDriver
-	Queue(name string) QueueDriver
+	Queue(name string) *Queue
 }
 
 const (
@@ -71,7 +71,7 @@ type BaseApplication struct {
 	loggerFactory  LoggerFactory
 
 	cache map[string]CacheDriver
-	queue map[string]QueueDriver
+	queue map[string]*Queue
 	jobs  map[int]QueueProcessor
 
 	runner Runner
@@ -87,7 +87,7 @@ func NewApplication(settings Configuration, routes map[Route]Processor, jobs map
 		contextFactory: func(p Processor, c *BaseContext) Context { return c },
 		loggerFactory:  func(a Application, c LoggerContext) Logger { return NewStdoutLogger(c) },
 		cache:          make(map[string]CacheDriver),
-		queue:          make(map[string]QueueDriver),
+		queue:          make(map[string]*Queue),
 		jobs:           jobs,
 	}
 
@@ -217,7 +217,7 @@ func (app *BaseApplication) ExecuteProcessor(processor Processor, ctx Context, m
 	})
 }
 
-func (app *BaseApplication) Reload(payloads ...interface{}) {
+func (app *BaseApplication) Reload() (err error) {
 	err = app.settings.Load()
 	if err != nil {
 		return
@@ -236,7 +236,7 @@ func (app *BaseApplication) Cache(name string) CacheDriver {
 	return NewNullDriver(name)
 }
 
-func (app *BaseApplication) Queue(name string) QueueDriver {
+func (app *BaseApplication) Queue(name string) *Queue {
 	if q, ok := app.queue[name]; ok {
 		return q
 	}
@@ -258,7 +258,11 @@ func (app *BaseApplication) initializeServices() {
 	for _, q := range app.settings.Motto().Queue {
 		switch q.Driver {
 		case "redis":
-			app.queue[q.Name] = NewRedisDriver(q.Name, q.Redis)
+			driver := NewRedisDriver(q.Name, q.Redis)
+			for _, name := range q.Queues {
+				key := q.Name + ":" + name
+				app.queue[key] = NewQueue(name, driver)
+			}
 		default:
 			// pass
 		}

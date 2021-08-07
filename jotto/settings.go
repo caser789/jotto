@@ -24,6 +24,7 @@ type CacheSettings struct {
 type QueueSettings struct {
 	Name   string         `json:"name" xml:"Name"`
 	Driver string         `json:"driver" xml:"Driver"`
+	Queues []string       `json:"queues" xml:"Queues>Name,omitempty"`
 	Redis  *RedisSettings `json:"redis,omitempty" xml:"Redis,omitempty"`
 }
 

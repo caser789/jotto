@@ -81,7 +81,65 @@ type QueueDriver interface {
 	ScheduleDeferred(queue string) (int64, error)
 }
 
+// QueueProcessor is a logic unit that can process a queue job `Job`
 type QueueProcessor func(Application, Logger, *Job) error
 
-type Queue interface {
+// Queue represents a logical queue that can receive async jobs
+// Multiple Queues may share the same underlying QueueDriver.
+type Queue struct {
+	name   string
+	driver QueueDriver
+}
+
+// NewQueue creates a logical queue
+func NewQueue(name string, driver QueueDriver) *Queue {
+	return &Queue{
+		name:   name,
+		driver: driver,
+	}
+}
+
+// Name returns the name of the queue
+func (q *Queue) Name() string {
+	return q.name
+}
+
+// Driver returns the underlying driver of the queue
+func (q *Queue) Driver() QueueDriver {
+	return q.driver
+}
+
+// Enqueue sends a job to queue
+func (q *Queue) Enqueue(job *Job) error {
+	return q.driver.Enqueue(q.name, job)
+}
+
+// Dequeue retrieves a job from queue
+func (q *Queue) Dequeue() (*Job, error) {
+	return q.driver.Dequeue(q.name)
+}
+
+// Requeue increases the attempt count of a job and requeues it
+func (q *Queue) Requeue(job *Job) error {
+	return q.driver.Requeue(q.name, job)
+}
+
+// Complete marks a job as completed and remove it from the queue
+func (q *Queue) Complete(job *Job) error {
+	return q.driver.Complete(q.name, job)
+}
+
+// Defer a job to be processed at a later time
+func (q *Queue) Defer(job *Job, after time.Duration) error {
+	return q.driver.Defer(q.name, job, after)
+}
+
+// Fail marks a job as failed and move it to the failed list
+func (q *Queue) Fail(job *Job) error {
+	return q.driver.Fail(q.name, job)
+}
+
+// Stats gets the stats of a quuee
+func (q *Queue) Stats() (*QueueStats, error) {
+	return q.driver.Stats(q.name)
 }

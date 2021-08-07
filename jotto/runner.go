@@ -327,8 +327,6 @@ func (r *CliRunner) Run() (err error) {
 
 	flagSet.Parse(os.Args[2:])
 
-	r.app.Boot()
-
 	// 4. Run the command.
 	command.Run(r.app, flag.Args())
 	return
@@ -344,19 +342,17 @@ func (r *CliRunner) help() {
 	r.bus.Print()
 }
 
-func NewQueueWorkerRunner(driver string, queue string) *QueueWorkerRunner {
+func NewQueueWorkerRunner(queue string) *QueueWorkerRunner {
 	return &QueueWorkerRunner{
-		driver: driver,
-		queue:  queue,
-		alive:  true,
+		queue: queue,
+		alive: true,
 	}
 }
 
 type QueueWorkerRunner struct {
-	app    Application
-	driver string
-	queue  string
-	alive  bool
+	app   Application
+	queue string
+	alive bool
 }
 
 func (r *QueueWorkerRunner) Attach(app Application) error {
@@ -366,7 +362,7 @@ func (r *QueueWorkerRunner) Attach(app Application) error {
 }
 
 func (r *QueueWorkerRunner) Run() error {
-	Q := r.app.Queue(r.driver)
+	Q := r.app.Queue(r.queue)
 
 	go r.watcher()
 
@@ -375,7 +371,7 @@ func (r *QueueWorkerRunner) Run() error {
 			"trace_id": GenerateTraceID(),
 		})
 
-		job, err := Q.Dequeue(r.queue)
+		job, err := Q.Dequeue()
 
 		if err != nil {
 			if err != redis.Nil {
@@ -399,19 +395,19 @@ func (r *QueueWorkerRunner) Run() error {
 
 		action := ""
 		if err == nil {
-			err = Q.Complete(r.queue, job)
+			err = Q.Complete(job)
 			action = "complete"
 		} else {
 			logger.Error("Job failed with error: %v. Requeue.", err)
 
 			if job.Attempts < 5 { // Requeue the job for retry
-				err = Q.Requeue(r.queue, job)
+				err = Q.Requeue(job)
 				action = "requeue"
 			} else if job.Attempts < 10 { // Attempted 5 times without success, let's retry at a later time.
-				err = Q.Defer(r.queue, job, time.Duration(1)*time.Minute)
+				err = Q.Defer(job, time.Duration(1)*time.Minute)
 				action = "defer"
 			} else { // Failed 10 times in a row, giving up
-				err = Q.Fail(r.queue, job)
+				err = Q.Fail(job)
 				action = "fail"
 			}
 		}
@@ -423,17 +419,17 @@ func (r *QueueWorkerRunner) Run() error {
 }
 
 func (r *QueueWorkerRunner) watcher() {
-	Q := r.app.Queue(r.driver)
+	Q := r.app.Queue(r.queue)
 	logger := r.app.MakeLogger(nil)
 
 	for r.alive {
-		stats, err := Q.Stats(r.queue)
+		stats, err := Q.Stats()
 
 		fmt.Println(stats)
 
 		if err == nil {
 			if stats.Waiting > 0 {
-				scheduled, err := Q.ScheduleDeferred(r.queue)
+				scheduled, err := Q.driver.ScheduleDeferred(Q.name)
 
 				if err == nil {
 					logger.Data("Queue: scheduled %d jobs.", scheduled)

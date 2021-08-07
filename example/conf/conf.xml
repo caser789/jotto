@@ -29,6 +29,10 @@
                     <Database>1</Database>
                     <Password></Password>
                 </Redis>
+                <Queues>
+                    <Name>main</Name>
+                    <Name>sub</Name>
+                </Queues>
             </Instance>
         </Queue>
     </Motto>

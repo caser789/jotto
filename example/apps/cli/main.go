@@ -13,6 +13,7 @@ func main() {
 	bus := motto.NewCommandBus()
 	bus.Register(commands.NewUpper())
 	bus.Register(commands.NewJob())
+	bus.Register(commands.NewTest())
 	bus.Register(commands.NewWait())
 
 	runner := motto.NewCliRunner(bus)

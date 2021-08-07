@@ -366,14 +366,16 @@ func (r *QueueWorkerRunner) Attach(app Application) error {
 }
 
 func (r *QueueWorkerRunner) Run() error {
-	queue := r.app.Queue(r.driver)
+	Q := r.app.Queue(r.driver)
+
+	go r.watcher()
 
 	for r.alive {
 		logger := r.app.MakeLogger(map[string]interface{}{
 			"trace_id": GenerateTraceID(),
 		})
 
-		job, err := queue.Pop(r.queue)
+		job, err := Q.Dequeue(r.queue)
 
 		if err != nil {
 			if err != redis.Nil {
@@ -395,17 +397,56 @@ func (r *QueueWorkerRunner) Run() error {
 
 		err = processor(r.app, logger, job)
 
-		if err != nil {
+		action := ""
+		if err == nil {
+			err = Q.Complete(r.queue, job)
+			action = "complete"
+		} else {
 			logger.Error("Job failed with error: %v. Requeue.", err)
-			job.Attempts++
-			job.LastAttempt = time.Now().UnixNano()
-			queue.Push(r.queue, job)
+
+			if job.Attempts < 5 { // Requeue the job for retry
+				err = Q.Requeue(r.queue, job)
+				action = "requeue"
+			} else if job.Attempts < 10 { // Attempted 5 times without success, let's retry at a later time.
+				err = Q.Defer(r.queue, job, time.Duration(1)*time.Minute)
+				action = "defer"
+			} else { // Failed 10 times in a row, giving up
+				err = Q.Fail(r.queue, job)
+				action = "fail"
+			}
 		}
 
-		logger.Data("Done processing job: %+v", job)
+		logger.Data("Queue: action=%s, err=%s, job: %s", action, err, job.TraceID)
 	}
 
 	return nil
+}
+
+func (r *QueueWorkerRunner) watcher() {
+	Q := r.app.Queue(r.driver)
+	logger := r.app.MakeLogger(nil)
+
+	for r.alive {
+		stats, err := Q.Stats(r.queue)
+
+		fmt.Println(stats)
+
+		if err == nil {
+			if stats.Waiting > 0 {
+				scheduled, err := Q.ScheduleDeferred(r.queue)
+
+				if err == nil {
+					logger.Data("Queue: scheduled %d jobs.", scheduled)
+				} else {
+					logger.Error("Queue: failed to schedule deferred jobs. (err=%v)", err)
+				}
+			}
+		} else {
+			logger.Error("Queue: failed to schedule deferred jobs. (err=%v)", err)
+		}
+
+		time.Sleep(time.Duration(1) * time.Second)
+	}
 }
 
 func (r *QueueWorkerRunner) Shutdown(timeout time.Duration) error {

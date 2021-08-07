@@ -34,4 +34,4 @@ type QueueDriver interface {
 	Pop(queue string) (*Job, error)
 }
 
-type QueueProcessor func(*Job) error
+type QueueProcessor func(Application, Logger, *Job) error

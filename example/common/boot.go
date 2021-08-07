@@ -18,7 +18,7 @@ func Boot(payloads ...interface{}) {
 	goorm.Pls_Go_Get_Orm_Lib_V2_40()
 	goorm.RegisterLogFunction(func(format string, v ...interface{}) {
 		logger.Debug(format, v...)
-	}, false)
+	}, true)
 
 	mi := goorm.RegisterModel(&pb.Quote{})
 	mi.SetPrimayColumn("id", false)

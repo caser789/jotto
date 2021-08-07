@@ -16,7 +16,7 @@ type Author struct {
 	Age  int    `json:"age"`
 }
 
-func ProcessTestJob(job *motto.Job) (err error) {
+func ProcessTestJob(app motto.Application, logger motto.Logger, job *motto.Job) (err error) {
 	author := &Author{}
 
 	json.Unmarshal([]byte(job.Payload), author)
@@ -25,7 +25,7 @@ func ProcessTestJob(job *motto.Job) (err error) {
 		return fmt.Errorf("Attempts (%d) < 3, fail", job.Attempts)
 	}
 
-	fmt.Printf("Author: %+v\n", author)
+	logger.Data("Author: %+v\n", author)
 
 	return
 }

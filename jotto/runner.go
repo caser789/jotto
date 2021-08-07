@@ -87,6 +87,13 @@ func (r *HttpRunner) handler(processor Processor, app Application) HttpHandler {
 
 		context := app.MakeContext(processor, ctx)
 
+		defer func() {
+			if err := recover(); err != nil {
+				logger.Error("Recover from panic: %v", err)
+				app.Fire(PanicEvent, context, err)
+			}
+		}()
+
 		body, err := ioutil.ReadAll(request.Body)
 
 		if err != nil {
@@ -330,7 +337,7 @@ func (r *QueueWorkerRunner) Run() error {
 			continue
 		}
 
-		err = processor(job)
+		err = processor(r.app, logger, job)
 
 		if err != nil {
 			logger.Error("Job failed with error: %v. Requeue.", err)

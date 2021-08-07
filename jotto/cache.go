@@ -77,12 +77,12 @@ func (rd *RedisDriver) Enqueue(queue string, job *Job) (err error) {
 	 * ARGV[1] = uuid
 	 * ARGV[2] = job
 	 */
-	lua := `
+	script := redis.NewScript(`
 		redis.call("hset", KEYS[1], ARGV[1], ARGV[2])
 		return redis.call("lpush", KEYS[2], ARGV[1])
-	`
+	`)
 
-	_, err = rd.client.Eval(lua, []string{rd.key(queue, "backlog"), rd.key(queue, "pending")}, job.TraceID, job.Serialize()).Result()
+	_, err = script.Run(rd.client, []string{rd.key(queue, "backlog"), rd.key(queue, "pending")}, job.TraceID, job.Serialize()).Result()
 	return
 }
 

@@ -28,6 +28,9 @@ type Application interface {
 
 	SetLoggerFactory(LoggerFactory)
 	MakeLogger(LoggerContext) Logger
+
+	Cache(name string) CacheDriver
+	Queue(name string) QueueDriver
 }
 
 const (
@@ -62,6 +65,9 @@ type BaseApplication struct {
 	settings       Configuration
 	contextFactory ContextFactory
 	loggerFactory  LoggerFactory
+
+	cache map[string]CacheDriver
+	queue map[string]QueueDriver
 }
 
 // NewApplication creates a new application.
@@ -73,6 +79,9 @@ func NewApplication(settings Configuration, routes map[Route]Processor) Applicat
 		settings:       settings,
 		contextFactory: func(p Processor, c *BaseContext) Context { return c },
 		loggerFactory:  func(a Application, c LoggerContext) Logger { return NewStdoutLogger(c) },
+
+		cache: make(map[string]CacheDriver),
+		queue: make(map[string]QueueDriver),
 	}
 
 	return app
@@ -149,6 +158,8 @@ func (app *BaseApplication) Boot() (err error) {
 
 	app.On(ReloadEvent, app.Reload)
 
+	app.initializeServices()
+
 	// Fire boot event
 	app.Fire(BootEvent, app)
 
@@ -199,4 +210,32 @@ func (app *BaseApplication) ExecuteProcessor(processor Processor, ctx Context, m
 }
 
 func (app *BaseApplication) Reload(payloads ...interface{}) {
+	app.initializeServices()
+}
+
+func (app *BaseApplication) Cache(name string) CacheDriver {
+	if c, ok := app.cache[name]; ok {
+		return c
+	}
+	return NewNullDriver(name)
+}
+
+func (app *BaseApplication) Queue(name string) QueueDriver {
+	if q, ok := app.queue[name]; ok {
+		return q
+	}
+	return nil
+}
+
+// Initialize external services such as cache, queue
+func (app *BaseApplication) initializeServices() {
+	for _, c := range app.settings.Motto().Cache {
+		switch c.Driver {
+		case "redis":
+			app.cache[c.Name] = NewRedisDriver(c.Name, c.Redis)
+		case "memcached":
+		default:
+			// pass
+		}
+	}
 }

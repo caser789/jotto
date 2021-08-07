@@ -10,19 +10,21 @@ type Settings struct {
 	Protocol string `json:"protocol" xml:"Protocol"`
 	Address  string `json:"address" xml:"Address"`
 
-	Cache CacheSettings `json:"cache,omitempty" xml:"Cache,omitempty"`
-	Queue QueueSettings `json:"queue,omitempty" xml:"Queue,omitempty"`
+	Cache []*CacheSettings `json:"cache,omitempty" xml:"Cache>Instance,omitempty"`
+	Queue []*QueueSettings `json:"queue,omitempty" xml:"Queue>Instance,omitempty"`
 }
 
 type CacheSettings struct {
-	Driver    string            `json:"driver" xml:"Driver"`
-	Redis     RedisSettings     `json:"redis,omitempty" xml:"Redis,omitempty"`
-	Memcached MemcachedSettings `json:"memcached,omitempty" xml:"Memcached,omitempty"`
+	Name      string             `json:"name" xml:"Name"`
+	Driver    string             `json:"driver" xml:"Driver"`
+	Redis     *RedisSettings     `json:"redis,omitempty" xml:"Redis,omitempty"`
+	Memcached *MemcachedSettings `json:"memcached,omitempty" xml:"Memcached,omitempty"`
 }
 
 type QueueSettings struct {
-	Driver string        `json:"driver" xml:"Driver"`
-	Redis  RedisSettings `json:"redis,omitempty" xml:"Redis,omitempty"`
+	Name   string         `json:"name" xml:"Name"`
+	Driver string         `json:"driver" xml:"Driver"`
+	Redis  *RedisSettings `json:"redis,omitempty" xml:"Redis,omitempty"`
 }
 
 type RedisSettings struct {

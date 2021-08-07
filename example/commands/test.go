@@ -34,7 +34,7 @@ func (i *Test) Boot(flagSet *flag.FlagSet) (err error) {
 func (i *Test) Run(app motto.Application, args []string) (err error) {
 	Q := app.Queue("default:main")
 
-	Q.Driver().Truncate("queue")
+	Q.Driver().Truncate("main")
 
 	job := &motto.Job{
 		Type:        1,

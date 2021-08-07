@@ -51,6 +51,6 @@ func (l *CommonLogger) log(logf func(string, ...interface{}), level, format stri
 		idx++
 	}
 
-	logf("[%s](%s)"+format, values...)
+	logf("[%s]<%s> "+format, values...)
 
 }

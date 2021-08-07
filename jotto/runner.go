@@ -387,35 +387,70 @@ func (r *QueueWorkerRunner) Run() error {
 		processor, ok := jobs[job.Type]
 
 		if !ok {
-			logger.Error("Job processor not found for %v", job)
+			logger.Error("Job processor not found for job %s", job.TraceID)
+			Q.Fail(job)
 			continue
 		}
 
-		err = processor(r.app, logger, job)
+		go r.process(processor, job, r.app, logger, Q)
+	}
 
-		action := ""
-		if err == nil {
-			err = Q.Complete(job)
-			action = "complete"
+	return nil
+}
+
+func (r *QueueWorkerRunner) process(processor QueueProcessor, job *Job, app Application, logger Logger, Q *Queue) (err error) {
+	defer func() {
+		er := Q.Attempt(job)
+
+		if er != nil {
+			logger.Error("Attemp job failure: %v", er)
+		}
+
+		if ex := recover(); ex == nil {
+			/*
+			 * Job processor returned normally. Check its err and determine what to do.
+			 */
+			var action string
+			var perr error
+
+			switch err {
+			case ErrorJobHandled: // ignore handled job
+				action = "ignore"
+			case nil: // auto complete
+				perr = Q.Complete(job)
+				action = "complete"
+			default: // auto retry on error
+				perr = Q.Requeue(job)
+				action = "requeue"
+			}
+
+			logger.Data("Queue: action=%s, err=%v, job: %s", action, perr, job.TraceID)
 		} else {
-			logger.Error("Job failed with error: %v. Requeue.", err)
+			/*
+			 * Job processor crashed, enter exception handling logic.
+			 */
+			logger.Error("Job crashed with error: %v. Job: %s", ex, job.TraceID)
 
+			action := ""
 			if job.Attempts < 5 { // Requeue the job for retry
 				err = Q.Requeue(job)
 				action = "requeue"
 			} else if job.Attempts < 10 { // Attempted 5 times without success, let's retry at a later time.
-				err = Q.Defer(job, time.Duration(1)*time.Minute)
+				err = Q.Defer(job, time.Duration(10)*time.Second)
 				action = "defer"
 			} else { // Failed 10 times in a row, giving up
 				err = Q.Fail(job)
 				action = "fail"
 			}
+
+			logger.Data("Queue: action=%s, err=%v, job: %s", action, err, job.TraceID)
 		}
+	}()
 
-		logger.Data("Queue: action=%s, err=%s, job: %s", action, err, job.TraceID)
-	}
+	// Execute the job processor
+	err = processor(Q, job, app, logger)
 
-	return nil
+	return
 }
 
 func (r *QueueWorkerRunner) watcher() {

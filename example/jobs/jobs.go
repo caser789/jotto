@@ -2,7 +2,7 @@ package jobs
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 
 	"git.garena.com/duanzy/motto/motto"
 )
@@ -16,13 +16,16 @@ type Author struct {
 	Age  int    `json:"age"`
 }
 
-func ProcessTestJob(app motto.Application, logger motto.Logger, job *motto.Job) (err error) {
+func ProcessTestJob(Q *motto.Queue, job *motto.Job, app motto.Application, logger motto.Logger) (err error) {
 	author := &Author{}
 
 	json.Unmarshal([]byte(job.Payload), author)
 
+	panic(errors.New("omg"))
+
 	if job.Attempts < 3 {
-		return fmt.Errorf("Attempts (%d) < 3, fail", job.Attempts)
+		logger.Error("Job attempts (%d) < 3, fail", job.Attempts)
+		return errors.New("fail")
 	}
 
 	logger.Data("Author: %+v\n", author)

@@ -109,17 +109,30 @@ func (rd *RedisDriver) Dequeue(queue string) (job *Job, err error) {
 	return
 }
 
-// Requeue queues the job again after increasing its attempts counter.
-func (rd *RedisDriver) Requeue(queue string, job *Job) (err error) {
-	job.Attempts++
-	job.LastAttempt = time.Now().Unix()
+// Attempt requeues the job
+func (rd *RedisDriver) Attempt(queue string, job *Job) (err error) {
+	job.Attempt()
 
+	ok, err := rd.client.HSet(rd.key(queue, "backlog"), job.TraceID, job.Serialize()).Result()
+
+	if err != nil {
+		return
+	}
+
+	if !ok {
+		return fmt.Errorf("Update queue backlog failed (queue=%s,job=%s)", queue, job.TraceID)
+	}
+
+	return
+}
+
+// Requeue requeues the job
+func (rd *RedisDriver) Requeue(queue string, job *Job) (err error) {
 	lua := `
 		local queue = KEYS[1]
 		local uuid = KEYS[2]
 		local job = ARGV[1]
 
-		redis.call('hset', queue..':backlog', uuid, job)
 		redis.call('lrem', queue..':working', 0, uuid)
 		return redis.call('lpush', queue..':pending', uuid)
 	`
@@ -164,7 +177,7 @@ func (rd *RedisDriver) Defer(queue string, job *Job, after time.Duration) (err e
 func (rd *RedisDriver) Fail(queue string, job *Job) (err error) {
 	lua := `
 		local queue = KEYS[1]
-		local uuid  = ARGS[2]
+		local uuid  = ARGV[1]
 
 		redis.call('lrem', queue..':working', 0, uuid)
 		return redis.call('lpush', queue..':failure', uuid)
@@ -176,11 +189,15 @@ func (rd *RedisDriver) Fail(queue string, job *Job) (err error) {
 
 // Truncate discards everything (!!DANGER!!) currently stored in the queue
 func (rd *RedisDriver) Truncate(queue string) (err error) {
-	rd.client.Del(rd.key(queue, "pending"))
-	rd.client.Del(rd.key(queue, "working"))
-	rd.client.Del(rd.key(queue, "failure"))
-	rd.client.Del(rd.key(queue, "backlog"))
-	rd.client.Del(rd.key(queue, "delayed"))
+	deleted, err := rd.client.Del(
+		rd.key(queue, "pending"),
+		rd.key(queue, "working"),
+		rd.key(queue, "failure"),
+		rd.key(queue, "backlog"),
+		rd.key(queue, "delayed"),
+	).Result()
+
+	fmt.Println("deleted", deleted, queue, err)
 	return
 }
 

@@ -2,6 +2,7 @@ package jotto
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -17,6 +18,12 @@ type Job struct {
 
 func (job *Job) String() string {
 	return job.Serialize()
+}
+
+// Attempt increases attempt counter and sets last attempt time
+func (job *Job) Attempt() {
+	job.Attempts++
+	job.LastAttempt = time.Now().Unix()
 }
 
 // Serialize serializes a job into string
@@ -59,7 +66,10 @@ type QueueDriver interface {
 	// Retrieve jobs from queue
 	Dequeue(queue string) (*Job, error)
 
-	// Increase the attempt count of a job and requeue it
+	// Increase attempt count
+	Attempt(queue string, job *Job) error
+
+	// Requeue the job
 	Requeue(queue string, job *Job) error
 
 	// Mark a job as completed and remove it from the queue
@@ -82,7 +92,10 @@ type QueueDriver interface {
 }
 
 // QueueProcessor is a logic unit that can process a queue job `Job`
-type QueueProcessor func(Application, Logger, *Job) error
+type QueueProcessor func(*Queue, *Job, Application, Logger) error
+
+// ErrorJobHandled description in error message
+var ErrorJobHandled = errors.New("job is handled by processor; runner does not need to do anything (requeue,complete,defer,fail) with this job")
 
 // Queue represents a logical queue that can receive async jobs
 // Multiple Queues may share the same underlying QueueDriver.
@@ -117,6 +130,11 @@ func (q *Queue) Enqueue(job *Job) error {
 // Dequeue retrieves a job from queue
 func (q *Queue) Dequeue() (*Job, error) {
 	return q.driver.Dequeue(q.name)
+}
+
+// Attempt increases the attempt count and sets the last attempt timestamp.
+func (q *Queue) Attempt(job *Job) error {
+	return q.driver.Attempt(q.name, job)
 }
 
 // Requeue increases the attempt count of a job and requeues it

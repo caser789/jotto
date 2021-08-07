@@ -2,9 +2,6 @@ package jotto
 
 import (
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 )
 
@@ -14,6 +11,7 @@ type Application interface {
 	Fire(Event, ...interface{})
 	Boot() error
 	Run() error
+	Reload() error
 	Shutdown(timeout time.Duration) error
 	Execute(Processor, Context)
 
@@ -174,24 +172,10 @@ func (app *BaseApplication) Boot() (err error) {
 	app.protocol = app.settings.Motto().Protocol
 	app.address = app.settings.Motto().Address
 
-	app.On(ReloadEvent, app.Reload)
-
 	app.initializeServices()
 
 	// Fire boot event
 	app.Fire(BootEvent, app)
-
-	// Listen for reload signal
-	s := make(chan os.Signal, 1)
-	signal.Notify(s, syscall.SIGUSR2)
-
-	go func() {
-		for {
-			<-s
-			app.settings.Load()
-			app.Fire(ReloadEvent, app)
-		}
-	}()
 
 	return
 }
@@ -234,7 +218,15 @@ func (app *BaseApplication) ExecuteProcessor(processor Processor, ctx Context, m
 }
 
 func (app *BaseApplication) Reload(payloads ...interface{}) {
+	err = app.settings.Load()
+	if err != nil {
+		return
+	}
+
 	app.initializeServices()
+	app.Fire(ReloadEvent, app)
+
+	return
 }
 
 func (app *BaseApplication) Cache(name string) CacheDriver {

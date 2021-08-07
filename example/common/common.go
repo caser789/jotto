@@ -37,7 +37,7 @@ func (c *Configuration) Load() (err error) {
 
 	xml.Unmarshal(content, &c.Settings)
 
-	fmt.Println("Application settings reloaded")
+	fmt.Println("Application settings loaded")
 
 	return
 }

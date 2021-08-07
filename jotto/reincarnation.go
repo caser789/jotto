@@ -43,15 +43,13 @@ func (s *Soul) Serve() error {
 
 	s.listen()
 
-	s.exit()
-
 	return nil
 }
 
 // Reload triggers the reload event of all applications.
 func (s *Soul) Reload() {
 	for _, app := range s.apps {
-		app.Fire(ReloadEvent, app)
+		app.Reload()
 	}
 }
 
@@ -81,7 +79,9 @@ func (s *Soul) listen() {
 
 	signal.Notify(signalChannel, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGUSR1, syscall.SIGUSR2)
 
-	for {
+	done := false
+
+	for !done {
 		sig := <-signalChannel
 
 		switch sig {
@@ -90,7 +90,9 @@ func (s *Soul) listen() {
 		case syscall.SIGUSR2:
 			s.Reincarnate() // Update binary
 		default:
-			return
+			s.exit()
+			done = true
 		}
 	}
+
 }

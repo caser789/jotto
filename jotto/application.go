@@ -18,6 +18,7 @@ type Application interface {
 	Protocol() string
 	Address() string
 	Routes() map[Route]Processor
+	Jobs() map[int]QueueProcessor
 
 	Get(string) (interface{}, bool)
 	Set(string, interface{})
@@ -68,10 +69,11 @@ type BaseApplication struct {
 
 	cache map[string]CacheDriver
 	queue map[string]QueueDriver
+	jobs  map[int]QueueProcessor
 }
 
 // NewApplication creates a new application.
-func NewApplication(settings Configuration, routes map[Route]Processor) Application {
+func NewApplication(settings Configuration, routes map[Route]Processor, jobs map[int]QueueProcessor) Application {
 	app := &BaseApplication{
 		eventBus:       NewEventBus(),
 		routes:         routes,
@@ -79,9 +81,9 @@ func NewApplication(settings Configuration, routes map[Route]Processor) Applicat
 		settings:       settings,
 		contextFactory: func(p Processor, c *BaseContext) Context { return c },
 		loggerFactory:  func(a Application, c LoggerContext) Logger { return NewStdoutLogger(c) },
-
-		cache: make(map[string]CacheDriver),
-		queue: make(map[string]QueueDriver),
+		cache:          make(map[string]CacheDriver),
+		queue:          make(map[string]QueueDriver),
+		jobs:           jobs,
 	}
 
 	return app
@@ -100,6 +102,11 @@ func (app *BaseApplication) Address() string {
 // Routes returns the route settings of the application
 func (app *BaseApplication) Routes() map[Route]Processor {
 	return app.routes
+}
+
+// Jobs returns the queue job settings of the application
+func (app *BaseApplication) Jobs() map[int]QueueProcessor {
+	return app.jobs
 }
 
 // On registers an event listener
@@ -234,6 +241,15 @@ func (app *BaseApplication) initializeServices() {
 		case "redis":
 			app.cache[c.Name] = NewRedisDriver(c.Name, c.Redis)
 		case "memcached":
+		default:
+			// pass
+		}
+	}
+
+	for _, q := range app.settings.Motto().Queue {
+		switch q.Driver {
+		case "redis":
+			app.queue[q.Name] = NewRedisDriver(q.Name, q.Redis)
 		default:
 			// pass
 		}

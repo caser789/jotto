@@ -11,9 +11,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-redis/redis"
 	"github.com/gorilla/mux"
 
-	"github.com/caser789/jotto/hotline"
+	"git.garena.com/duanzy/motto/hotline"
 	"github.com/gogo/protobuf/proto"
 )
 
@@ -279,4 +280,65 @@ func (r *CliRunner) help() {
 	fmt.Printf("Usage: %s -<command-name> ...<flags> ...<args>    To run a command\n", os.Args[0])
 	fmt.Printf("       %s -<command-name> -h                      To get usage information of a specific command\n\n", os.Args[0])
 	r.bus.Print()
+}
+
+func NewQueueWorkerRunner(driver string, queue string) *QueueWorkerRunner {
+	return &QueueWorkerRunner{
+		driver: driver,
+		queue:  queue,
+	}
+}
+
+type QueueWorkerRunner struct {
+	app    Application
+	driver string
+	queue  string
+}
+
+func (r *QueueWorkerRunner) Attach(app Application) error {
+	r.app = app
+
+	return nil
+}
+
+func (r *QueueWorkerRunner) Run() error {
+	queue := r.app.Queue(r.driver)
+
+	for {
+		logger := r.app.MakeLogger(map[string]interface{}{
+			"trace_id": GenerateTraceID(),
+		})
+
+		job, err := queue.Pop(r.queue)
+
+		if err != nil {
+			if err != redis.Nil {
+				logger.Error("Pop job error: %v", err)
+			}
+			continue
+		}
+
+		logger.Data("Received job: %+v", job)
+
+		jobs := r.app.Jobs()
+
+		processor, ok := jobs[job.Type]
+
+		if !ok {
+			logger.Error("Job processor not found for %v", job)
+			continue
+		}
+
+		err = processor(job)
+
+		if err != nil {
+			logger.Error("Job failed with error: %v. Requeue.", err)
+			job.Attempts += 1
+			queue.Push(r.queue, job)
+		}
+
+		logger.Data("Done processing job: %+v", job)
+	}
+
+	return nil
 }

@@ -1,12 +1,37 @@
 package jotto
 
-type Job interface {
-	Type() string
-	Payload() string
-	Attempts() int
+import (
+	"encoding/json"
+)
+
+type Job struct {
+	Type        int
+	Payload     string
+	Attempts    int
+	LastAttempt int
+}
+
+func (job *Job) String() string {
+	return job.Serialize()
+}
+
+func (job *Job) Serialize() (str string) {
+	bytes, err := json.Marshal(job)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return string(bytes)
+}
+
+func (job *Job) Unserialize(str string) (err error) {
+	return json.Unmarshal([]byte(str), job)
 }
 
 type QueueDriver interface {
-	Push(Job) error
-	Pop() (Job, error)
+	Push(queue string, job *Job) error
+	Pop(queue string) (*Job, error)
 }
+
+type QueueProcessor func(*Job) error

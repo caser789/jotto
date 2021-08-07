@@ -13,6 +13,7 @@ type CacheDriver interface {
 	Has(key string) (bool, error)
 }
 
+// RedisDriver implements both the CacheDriver and QueueDriver interface
 type RedisDriver struct {
 	name     string
 	settings *RedisSettings
@@ -36,6 +37,8 @@ func NewRedisDriver(name string, settings *RedisSettings) *RedisDriver {
 	}
 }
 
+/* CacheDriver */
+
 func (rd *RedisDriver) Get(key string) (value string, err error) {
 	return rd.client.Get(key).Result()
 }
@@ -50,6 +53,31 @@ func (rd *RedisDriver) Has(key string) (bool, error) {
 	err := rd.client.Get(key).Err()
 
 	return err == nil, err
+}
+
+/* QueueDriver */
+
+func (rd *RedisDriver) Push(queue string, job *Job) error {
+	_, err := rd.client.LPush(queue, job.Serialize()).Result()
+
+	return err
+}
+
+func (rd *RedisDriver) Pop(queue string) (job *Job, err error) {
+	values, err := rd.client.BRPop(time.Second*2, queue).Result()
+
+	if err != nil {
+		return
+	}
+
+	job = &Job{}
+	err = job.Unserialize(values[1])
+
+	if err != nil {
+		return nil, err
+	}
+
+	return
 }
 
 func NewNullDriver(name string) *NullDriver {

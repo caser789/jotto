@@ -473,7 +473,7 @@ func (r *QueueWorkerRunner) watcher() {
 				}
 			}
 		} else {
-			logger.Error("Queue: failed to schedule deferred jobs. (err=%v)", err)
+			logger.Error("Queue: failed to retrieve queue stats. (err=%v)", err)
 		}
 
 		time.Sleep(time.Duration(1) * time.Second)

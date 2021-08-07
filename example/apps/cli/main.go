@@ -12,11 +12,12 @@ import (
 func main() {
 	bus := motto.NewCommandBus()
 	bus.Register(commands.NewUpper())
+	bus.Register(commands.NewJob())
 
 	runner := motto.NewCliRunner(bus)
 
 	cfg := common.NewConfiguration("conf/conf.xml")
-	app := motto.NewApplication(cfg, routes.Routes)
+	app := motto.NewApplication(cfg, routes.Routes, nil)
 	app.Boot()
 
 	fmt.Println(app.Run(runner))

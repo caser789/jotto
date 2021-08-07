@@ -18,7 +18,7 @@ func main() {
 	cfg := common.NewConfiguration(recipe)
 
 	// Create application instance
-	app := motto.NewApplication(cfg, routes.Routes)
+	app := motto.NewApplication(cfg, routes.Routes, nil)
 
 	// Set logger and context factory
 	app.SetLoggerFactory(common.NewCommonLogger)

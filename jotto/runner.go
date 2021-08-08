@@ -77,6 +77,7 @@ func (r *HttpRunner) Run() (err error) {
 	if idleTimeout == 0 {
 		idleTimeout = 30
 	}
+
 	r.server = &http.Server{
 		Addr: r.app.Address(),
 		// Good practice to set timeouts to avoid Slowloris attacks.
@@ -423,6 +424,12 @@ func (r *QueueWorkerRunner) Attach(app Application) error {
 }
 
 func (r *QueueWorkerRunner) Run() error {
+	defer func() {
+		if er := recover(); er != nil {
+			fmt.Printf("motto|queue_runner|recover_from_panic|panic=%v,stack=%s\n", er, debug.Stack())
+		}
+	}()
+
 	Q := r.app.Queue(r.queue)
 
 	go r.watcher()
@@ -520,7 +527,10 @@ func (r *QueueWorkerRunner) process(processor QueueProcessor, job *Job, app Appl
 					action = "fail"
 				}
 			}
-
+			callbackProcessor, er := r.app.GetJobCallBackFunc(job.Type)
+			if er == nil {
+				callbackProcessor(Q, job, app, action, err)
+			}
 			logger.Dataf("QueueWorkerRunner|process|action=%s,err=%v,job_id=%s", action, perr, job.TraceID)
 		} else {
 			/*
@@ -537,7 +547,10 @@ func (r *QueueWorkerRunner) process(processor QueueProcessor, job *Job, app Appl
 				err = Q.Fail(job)
 				action = "fail"
 			}
-
+			callbackProcessor, er := r.app.GetJobCallBackFunc(job.Type)
+			if er == nil {
+				callbackProcessor(Q, job, app, action, err)
+			}
 			logger.Dataf("QueueWorkerRunner|process|action=%s,err=%v,job_id=%s", action, err, job.TraceID)
 		}
 
@@ -545,6 +558,7 @@ func (r *QueueWorkerRunner) process(processor QueueProcessor, job *Job, app Appl
 		if !ok {
 			logger.Errorf("QueueWorkerRunner|process|worker_pool_full|cannot_release_worker|terminate_without_replenishing_the_pool")
 		}
+
 	}()
 
 	// Execute the job processor
@@ -564,7 +578,7 @@ func (r *QueueWorkerRunner) watcher() {
 	for r.alive {
 		stats, err := Q.Stats()
 
-		fmt.Println(stats)
+		logger.Dataf("%+v", stats)
 
 		if err == nil {
 			if stats.Waiting > 0 {

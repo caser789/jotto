@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"git.garena.com/shopee/go-shopeelib/logger"
 	"github.com/go-redis/redis"
 )
 
@@ -16,8 +17,8 @@ type CacheDriver interface {
 	// get the value and put it into the cache afterwards.
 	GetVia(key string, handler func() (value string, expiration time.Duration, err error)) (string, error)
 	Set(key, value string, expiration time.Duration) error
-	Has(key string) (bool, error)
 	SetNX(key, value string, expiration time.Duration) (bool, error)
+	Has(key string) (bool, error)
 	Del(keys ...string) (bool, error)
 	Flush() (bool, error)
 	// Incr - increment the given `key`
@@ -219,6 +220,7 @@ func (rd *RedisDriver) Dequeue(queue string) (job *Job, err error) {
 		return
 	}
 
+	logger.Dataf("Job ID: %s", jobID)
 	if serialized, err = rd.client.HGet(rd.key(queue, "backlog"), jobID).Result(); err != nil {
 		return
 	}
@@ -377,7 +379,7 @@ func (rd *RedisDriver) Truncate(queue string) (err error) {
 		rd.key(queue, "delayed"),
 	).Result()
 
-	fmt.Println("deleted", deleted, queue, err)
+	logger.Dataf("deleted %s, %s, %s", deleted, queue, err)
 	return
 }
 

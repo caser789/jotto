@@ -14,6 +14,8 @@ type Job struct {
 	Payload     string
 	Attempts    int64
 	LastAttempt int64
+	JobID       uint64
+	DataBase    string
 }
 
 func (job *Job) String() string {
@@ -99,6 +101,9 @@ type QueueDriver interface {
 
 // QueueProcessor is a logic unit that can process a queue job `Job`
 type QueueProcessor func(*Queue, *Job, Application, Logger) error
+
+// QueueCallbackProcessor is a logic unit that can process a queue job `Job`
+type QueueCallbackProcessor func(*Queue, *Job, Application, string, error) error
 
 // ErrorJobHandled description in error message
 var ErrorJobHandled = errors.New("job is handled by processor; runner does not need to do anything (requeue,complete,defer,fail) with this job")

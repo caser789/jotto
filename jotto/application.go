@@ -38,9 +38,14 @@ type Application interface {
 
 	Container() Container
 
+	SetPanicHandler(PanicHandler)
+	Panic(ctx context.Context, recover, req, resp interface{})
+
 	RegisterDaemon(name string, worker DaemonWorker, args ...interface{}) Daemon
 	GetDaemon(name string) (Daemon, error)
 }
+
+type PanicHandler func(ctx context.Context, recover, req, resp interface{})
 
 // Daemon - daemon running in background
 type Daemon interface {
@@ -148,6 +153,8 @@ type BaseApplication struct {
 
 	listener net.Listener
 	runner   Runner
+
+	panicHandler PanicHandler
 }
 
 // NewApplication creates a new application.
@@ -261,7 +268,7 @@ func (app *BaseApplication) Run() (err error) {
 	}
 
 	for _, daemon := range app.daemons {
-		fmt.Printf("start daemon %s", daemon.Name())
+		fmt.Printf(" - start daemon %s\n", daemon.Name())
 		daemon.Start()
 	}
 
@@ -338,6 +345,15 @@ func (app *BaseApplication) SetListener(listener net.Listener) {
 
 func (app *BaseApplication) Container() Container {
 	return app.container
+}
+
+func (app *BaseApplication) SetPanicHandler(handler PanicHandler) {
+	app.panicHandler = handler
+}
+func (app *BaseApplication) Panic(ctx context.Context, recover, req, resp interface{}) {
+	if app.panicHandler != nil {
+		app.panicHandler(ctx, recover, req, resp)
+	}
 }
 
 // RegisterDaemon - register a daemon with the current application

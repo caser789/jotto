@@ -84,19 +84,13 @@ func (ioc *container) Make(ctx context.Context, value interface{}, tag interface
 
 	kind = reflect.TypeOf(value)
 
-	fmt.Println("kind", kind)
-
 	if registry, ok = ioc.registry[kind]; !ok {
 		return fmt.Errorf("Type `%v` is not registered", kind)
 	}
 
-	fmt.Println("registry", registry)
-
 	if entry, ok = registry.entries[tag]; !ok {
 		return fmt.Errorf("Entry `%v`.`%v` is not registered", kind, tag)
 	}
-
-	fmt.Println("entry", entry)
 
 	if !entry.options.Singleton {
 		object, err = entry.factory(ctx, ioc.app)

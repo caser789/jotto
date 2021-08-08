@@ -105,80 +105,84 @@ func (r *HttpRunner) Attach(app Application) (err error) {
 }
 
 func (r *HttpRunner) handler(processor Processor, app Application) HttpHandler {
-
 	return func(writer http.ResponseWriter, request *http.Request) {
 		logger := app.MakeLogger(map[string]interface{}{
 			"trace_id": GenerateTraceID(),
 		})
 
-		ctx := context.Background()
-
-		message := proto.Clone(processor.Message())
-		reply := proto.Clone(processor.Reply())
+		var (
+			err     error
+			body    []byte
+			ctx     = context.Background()
+			message = proto.Clone(processor.Message())
+			reply   = proto.Clone(processor.Reply())
+		)
 
 		ctx = context.WithValue(ctx, CtxHTTPRequest, request)
 		ctx = context.WithValue(ctx, CtxHTTPResponse, writer)
 		ctx = context.WithValue(ctx, CtxLogger, logger)
 		ctx = context.WithValue(ctx, CtxTime, uint32(time.Now().Unix()))
-
 		ctx = r.app.MakeContext(ctx, processor)
 
 		defer func() {
-			if err := recover(); err != nil {
-				logger.Errorf("Recover from panic: %s: %s", err, debug.Stack())
-				app.Fire(PanicEvent, ctx, err)
+			if er := recover(); er != nil {
+				logger.Errorf("motto|http_runner|recover_from_panic|panic=%v,stack=%s", er, debug.Stack())
+				app.Panic(ctx, er, message, reply)
+				r.respond(ctx, writer, message, reply)
 			}
 		}()
 
-		body, err := ioutil.ReadAll(request.Body)
+		if body, err = ioutil.ReadAll(request.Body); err != nil {
+			logger.Errorf("motto|http_runner|failed_to_read_request_body|err=%v", err)
+			panic(err)
+		}
 
 		ctx = context.WithValue(ctx, CtxHTTPRequestBody, body)
 
-		if err != nil {
-			logger.Errorf("Failed to read request body")
-			app.Fire(PanicEvent, ctx)
-		}
-
 		if len(body) > 0 {
-			err = json.Unmarshal(body, &message)
-
-			if err != nil {
-				logger.Errorf("Failed to unmarshal incoming message. (body=%s)", body)
-				app.Fire(PanicEvent, ctx)
+			if err = json.Unmarshal(body, &message); err != nil {
+				logger.Errorf("motto|http_runner|failed_to_unmarshal_incoming_message|body=%s,err=%v", body, err)
+				panic(err)
 			}
 		}
 
 		_, ctx = app.Execute(ctx, processor, message, reply)
 
-		var resp []byte
-		if v, ok := ctx.Value(CtxHTTPResponseBody).([]byte); ok {
-			// Response body generated, directly use it
-			resp = v
-		} else {
-			// Response body not generated, marshal from proto message
-			resp, err = json.Marshal(reply)
-
-			if err != nil {
-				logger.Errorf("Failed to marshal outgoing message. (reply=%v)", reply)
-				app.Fire(PanicEvent, ctx)
-			}
-		}
-
-		writer.Header().Set("Content-Type", "application/json")
-
-		// Attach headers emitted by application
-		if headers, ok := ctx.Value(CtxHTTPResponseHeaders).(map[string]string); ok {
-			for k, v := range headers {
-				writer.Header().Set(k, v)
-			}
-		}
-
-		if status, ok := ctx.Value(CtxHTTPStatus).(int); ok {
-			writer.WriteHeader(status)
-		}
-
-		writer.Write(resp)
+		r.respond(ctx, writer, message, reply)
 	}
+}
+
+func (r *HttpRunner) respond(ctx context.Context, writer http.ResponseWriter, req, reply interface{}) {
+	var (
+		err    error
+		resp   []byte
+		logger = GetLogger(ctx)
+	)
+	if v, ok := ctx.Value(CtxHTTPResponseBody).([]byte); ok {
+		// Response body generated, directly use it
+		resp = v
+	} else {
+		// Response body not generated, marshal from proto message
+		if resp, err = json.Marshal(reply); err != nil {
+			logger.Errorf("motto|http_runner|failed_to_marshal_outgoing_message|reply=%v,err=%v", reply, err)
+			panic(err)
+		}
+	}
+
+	writer.Header().Set("Content-Type", "application/json")
+
+	// Attach headers emitted by application
+	if headers, ok := ctx.Value(CtxHTTPResponseHeaders).(map[string]string); ok {
+		for k, v := range headers {
+			writer.Header().Set(k, v)
+		}
+	}
+
+	if status, ok := ctx.Value(CtxHTTPStatus).(int); ok {
+		writer.WriteHeader(status)
+	}
+
+	writer.Write(resp)
 }
 
 // TcpRunner is the built-in TCP runner of Motto

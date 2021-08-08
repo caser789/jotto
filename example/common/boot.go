@@ -12,12 +12,14 @@ import (
 func Boot(payloads ...interface{}) {
 	// Initialise the logger
 	gocommon.LoggerInit("log/upper.log", 86400, 1000*1000*1000, 30, 3)
+
 	app := payloads[0].(motto.Application)
 
 	logger := app.MakeLogger(nil)
+
 	goorm.Pls_Go_Get_Orm_Lib_V2_40()
 	goorm.RegisterLogFunction(func(format string, v ...interface{}) {
-		logger.Debug(format, v...)
+		logger.Debugf(format, v...)
 	}, true)
 
 	mi := goorm.RegisterModel(&pb.Quote{})
@@ -37,6 +39,7 @@ func Boot(payloads ...interface{}) {
 		fmt.Println("Error setting up ORM: ", err)
 		return
 	}
+
 }
 
 func Reload(payloads ...interface{}) {

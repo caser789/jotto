@@ -17,25 +17,25 @@ type CommonLogger struct {
 	context motto.LoggerContext
 }
 
-func (l *CommonLogger) Trace(format string, v ...interface{}) {
+func (l *CommonLogger) Tracef(format string, v ...interface{}) {
 	l.log(gocommon.Logf, "TRACE", format, v...)
 }
-func (l *CommonLogger) Debug(format string, v ...interface{}) {
+func (l *CommonLogger) Debugf(format string, v ...interface{}) {
 	l.log(gocommon.Logf, "DEBUG", format, v...)
 }
-func (l *CommonLogger) Info(format string, v ...interface{}) {
+func (l *CommonLogger) Infof(format string, v ...interface{}) {
 	l.log(gocommon.Logf, "INFO", format, v...)
 }
-func (l *CommonLogger) Data(format string, v ...interface{}) {
+func (l *CommonLogger) Dataf(format string, v ...interface{}) {
 	l.log(gocommon.Logf, "DATA", format, v...)
 }
-func (l *CommonLogger) Warning(format string, v ...interface{}) {
+func (l *CommonLogger) Warnf(format string, v ...interface{}) {
 	l.log(gocommon.Logf, "WARN", format, v...)
 }
-func (l *CommonLogger) Error(format string, v ...interface{}) {
+func (l *CommonLogger) Errorf(format string, v ...interface{}) {
 	l.log(gocommon.Logf, "ERROR", format, v...)
 }
-func (l *CommonLogger) Fatal(format string, v ...interface{}) {
+func (l *CommonLogger) Fatalf(format string, v ...interface{}) {
 	l.log(gocommon.Logf, "FATAL", format, v...)
 }
 

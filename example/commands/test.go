@@ -10,7 +10,8 @@ import (
 
 type Test struct {
 	motto.BaseCommand
-	text string
+	text  string
+	count int
 }
 
 func NewTest() *Test {
@@ -27,6 +28,7 @@ func (i *Test) Description() string {
 
 func (i *Test) Boot(flagSet *flag.FlagSet) (err error) {
 	flagSet.StringVar(&i.text, "text", "Zhiyan", "Part of the test payload")
+	flagSet.IntVar(&i.count, "count", 10, "Number of jobs to push onto the queue")
 
 	return
 }
@@ -36,7 +38,7 @@ func (i *Test) Run(app motto.Application, args []string) (err error) {
 
 	Q.Driver().Truncate("main")
 
-	for j := 0; j < 11; j++ {
+	for j := 0; j < i.count; j++ {
 		job := &motto.Job{
 			Type:        2,
 			Payload:     fmt.Sprintf(`{"name": "%s", "age": 31}`, i.text),
@@ -45,6 +47,8 @@ func (i *Test) Run(app motto.Application, args []string) (err error) {
 		}
 		Q.Enqueue(job)
 	}
+
+	fmt.Printf("Pushed %d jobs", i.count)
 
 	return
 

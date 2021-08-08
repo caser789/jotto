@@ -1,20 +1,21 @@
 package middlewares
 
 import (
+	"git.garena.com/duanzy/motto/motto"
 	"git.garena.com/lixh/goorm"
-	"github.com/caser789/jotto/jotto"
 )
 
 func Logging(app motto.Application, context motto.Context, next func(motto.Context) error) (err error) {
 	ctx := context.Motto()
-	ctx.Logger.Info("Request: %v", ctx.Message)
+
+	ctx.Logger.Infof("Request: %v", ctx.Message)
 
 	goorm.RegisterLogFunction(func(format string, v ...interface{}) {
-		ctx.Logger.Debug(format, v...)
+		ctx.Logger.Debugf(format, v...)
 	}, true)
 
 	err = next(context)
 
-	ctx.Logger.Info("Response: %v", ctx.Reply)
+	ctx.Logger.Infof("Response: %v", ctx.Reply)
 	return
 }

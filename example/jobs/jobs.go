@@ -3,7 +3,6 @@ package jobs
 import (
 	"encoding/json"
 	"errors"
-	"time"
 
 	"git.garena.com/duanzy/motto/motto"
 )
@@ -34,9 +33,6 @@ func ProcessTestJob(Q *motto.Queue, job *motto.Job, app motto.Application, logge
 }
 
 func LongRunningJob(Q *motto.Queue, job *motto.Job, app motto.Application, logger motto.Logger) (err error) {
-	logger.Trace("Sleeping")
-	time.Sleep(time.Second * 3)
-	logger.Trace("Waking up")
-
+	logger.Data("Processing %s", job.TraceID)
 	return
 }

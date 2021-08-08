@@ -3,6 +3,7 @@ package jotto
 import (
 	"context"
 	"net/http"
+	"time"
 )
 
 // ContextKey - motto context key type
@@ -17,6 +18,7 @@ const (
 	CtxHTTPStatus
 	CtxHTTPResponseHeaders
 	CtxLogger
+	CtxTime
 )
 
 // GetLogger - retrieve a logger from context
@@ -28,6 +30,17 @@ func GetLogger(ctx context.Context) (logger Logger) {
 	}
 
 	return
+}
+
+// GetTime - get the time when the context is created
+func GetTime(ctx context.Context) (timestamp uint32) {
+	timestamp, ok := ctx.Value(CtxTime).(uint32)
+
+	if !ok {
+		return uint32(time.Now().Unix())
+	}
+
+	return timestamp
 }
 
 func GetHTTPRequest(ctx context.Context) (request *http.Request) {

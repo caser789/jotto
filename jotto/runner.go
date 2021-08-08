@@ -119,6 +119,7 @@ func (r *HttpRunner) handler(processor Processor, app Application) HttpHandler {
 		ctx = context.WithValue(ctx, CtxHTTPRequest, request)
 		ctx = context.WithValue(ctx, CtxHTTPResponse, writer)
 		ctx = context.WithValue(ctx, CtxLogger, logger)
+		ctx = context.WithValue(ctx, CtxTime, uint32(time.Now().Unix()))
 
 		ctx = r.app.MakeContext(ctx, processor)
 

@@ -9,7 +9,7 @@ import (
 	"git.garena.com/duanzy/motto/hotline"
 	"git.garena.com/duanzy/motto/motto"
 	pb "git.garena.com/duanzy/motto/sample/protocol"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 )
 
 type Quote struct {

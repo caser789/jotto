@@ -7,7 +7,7 @@ import (
 	"git.garena.com/duanzy/motto/motto"
 	"git.garena.com/duanzy/motto/sample/common"
 	pb "git.garena.com/duanzy/motto/sample/protocol"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 )
 
 func About(ctx context.Context, app motto.Application, request, response interface{}) (int32, context.Context) {
@@ -21,6 +21,8 @@ func About(ctx context.Context, app motto.Application, request, response interfa
 	fmt.Println(quote)
 
 	reply := response.(*pb.RespAbout)
+
+	panic("2")
 
 	reply.About = proto.String(
 		fmt.Sprintf(

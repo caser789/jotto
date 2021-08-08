@@ -3,11 +3,13 @@ package common
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"git.garena.com/common/gocommon"
 	"git.garena.com/duanzy/motto/motto"
 	pb "git.garena.com/duanzy/motto/sample/protocol"
 	"git.garena.com/lixh/goorm"
+	"github.com/golang/protobuf/proto"
 )
 
 func Boot(payloads ...interface{}) {
@@ -41,6 +43,13 @@ func Boot(payloads ...interface{}) {
 		return
 	}
 
+	app.SetPanicHandler(Panic)
+
+}
+
+func Panic(ctx context.Context, recover, request, response interface{}) {
+	reply := reflect.ValueOf(response)
+	reflect.Indirect(reply).FieldByName("RequestId").Set(reflect.ValueOf(proto.String(fmt.Sprintf("error:%v", recover))))
 }
 
 func Reload(payloads ...interface{}) {

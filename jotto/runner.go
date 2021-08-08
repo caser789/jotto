@@ -18,9 +18,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"git.garena.com/duanzy/motto/hotline"
-	"git.garena.com/shopee/golang_splib/splog"
-	"git.garena.com/shopee/golang_splib/sps"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 )
 
 // Runner defines the logic of how an application should be run.
@@ -580,37 +578,7 @@ func (r *SpexRunner) Attach(app Application) (err error) {
 
 // Run - run the application
 func (r *SpexRunner) Run() (err error) {
-	sps.Init()
-
-	// Register processors
-	for route, processor := range r.app.Routes() {
-		sps.RegisterProcessor(&sps.ProcessorConfig{
-			Command:   route.URI(),
-			Processor: r.wrap(processor),
-			Req:       processor.Message(),
-			Resp:      processor.Reply(),
-		})
-	}
-
-	// TODO: Register config & callback
-
-	if err = sps.Start(sps.WithStdoutLog()); err != nil {
-		panic(err)
-	}
-
-	sps.WaitExit()
-
 	return
-}
-
-func (r *SpexRunner) wrap(processor Processor) sps.ProcessorFunc {
-	return func(ctx context.Context, request, response interface{}) (code uint32) {
-		ctx = context.WithValue(ctx, CtxLogger, sps.WithRequestInfo(ctx, splog.Log))
-		ctx = r.app.MakeContext(ctx, processor)
-
-		c, ctx := r.app.Execute(ctx, processor, request, response)
-		return uint32(c)
-	}
 }
 
 // Shutdown - shutdown the runner

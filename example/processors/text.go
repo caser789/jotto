@@ -7,7 +7,7 @@ import (
 
 	"git.garena.com/duanzy/motto/motto"
 	pb "git.garena.com/duanzy/motto/sample/protocol"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 )
 
 func Text(ctx context.Context, app motto.Application, request, response interface{}) (int32, context.Context) {

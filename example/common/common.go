@@ -8,7 +8,7 @@ import (
 
 	"git.garena.com/duanzy/motto/motto"
 	"git.garena.com/lixh/goorm"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 )
 
 type AppContextKey int

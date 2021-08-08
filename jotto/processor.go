@@ -3,7 +3,7 @@ package jotto
 import (
 	"context"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 )
 
 // ProcessorHandler is the basic logic unit of a Motto app.

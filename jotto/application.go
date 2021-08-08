@@ -22,7 +22,7 @@ type Application interface {
 	Routes() map[Route]Processor
 	Jobs() map[int]QueueProcessor
 
-	Get(string) (interface{}, bool)
+	Get(string) interface{}
 	Set(string, interface{})
 	Settings() Configuration
 
@@ -140,10 +140,12 @@ func (app *BaseApplication) Fire(event Event, payload ...interface{}) {
 	app.eventBus.Fire(event, payload...)
 }
 
-// Get retrieves an entry from the application's registry
-func (app *BaseApplication) Get(key string) (value interface{}, ok bool) {
-	value, ok = app.registry[key]
-	return
+func (app *BaseApplication) Get(key string) (value interface{}) {
+	value, ok := app.registry[key]
+	if !ok {
+		return nil
+	}
+	return value
 }
 
 // Set puts `value` into the application's registry under `key`

@@ -139,11 +139,13 @@ func (r *HttpRunner) handler(processor Processor, app Application) HttpHandler {
 			app.Fire(PanicEvent, ctx)
 		}
 
-		err = json.Unmarshal(body, &message)
+		if len(body) > 0 {
+			err = json.Unmarshal(body, &message)
 
-		if err != nil {
-			logger.Errorf("Failed to unmarshal incoming message. (body=%s)", body)
-			app.Fire(PanicEvent, ctx)
+			if err != nil {
+				logger.Errorf("Failed to unmarshal incoming message. (body=%s)", body)
+				app.Fire(PanicEvent, ctx)
+			}
 		}
 
 		_, ctx = app.Execute(ctx, processor, message, reply)

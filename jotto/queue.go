@@ -84,6 +84,9 @@ type QueueDriver interface {
 	// Mark a job as failed and move it to the failed list
 	Fail(queue string, job *Job) error
 
+	// Requeue all failed jobs on the queue
+	RequeueAllFailed(queue string) error
+
 	// Clear the queue (All data will be lost)
 	Truncate(queue string) error
 
@@ -163,6 +166,10 @@ func (q *Queue) Defer(job *Job, after time.Duration) error {
 // Fail marks a job as failed and move it to the failed list
 func (q *Queue) Fail(job *Job) error {
 	return q.driver.Fail(q.name, job)
+}
+
+func (q *Queue) RequeueAllFailed() error {
+	return q.driver.RequeueAllFailed(q.name)
 }
 
 // Stats gets the stats of a quuee

@@ -297,6 +297,36 @@ func (rd *RedisDriver) Fail(queue string, job *Job) (err error) {
 	return
 }
 
+// RequeueAllFailed - requeue all failed jobs (move jobs from `failure` into `pending`)
+func (rd *RedisDriver) RequeueAllFailed(queue string) (err error) {
+	/*
+	 * KEYS[1] = failure
+	 * KEYS[2] = backlog
+	 * ARGV[1] = pending
+	 */
+	script := redis.NewScript(`
+		local failures = redis.call("lrange", KEYS[1], 0, -1)
+		local pendings = redis.call('llen', ARGV[1])
+
+		for _, uuid in ipairs(failures) do
+			if redis.call('hget', KEYS[2], uuid) then
+				local count = redis.call('lpush', ARGV[1], uuid)
+				if count > pendings then
+					pendings = count
+					redis.call('lrem', KEYS[1], 0, uuid)
+				end
+			else
+				redis.call('lrem', KEYS[1], 0, uuid)
+			end
+		end
+
+		return 1
+	`)
+
+	_, err = script.Run(rd.client, []string{rd.key(queue, "failure"), rd.key(queue, "backlog")}, rd.key(queue, "pending")).Result()
+	return
+}
+
 // Truncate discards everything (!!DANGER!!) currently stored in the queue
 func (rd *RedisDriver) Truncate(queue string) (err error) {
 	deleted, err := rd.client.Del(
@@ -395,7 +425,7 @@ func (rd *RedisDriver) ScheduleDeferred(queue string) (count int64, err error) {
 }
 
 func (rd *RedisDriver) key(queue string, segment string) string {
-	return fmt.Sprintf("%s:%s", queue, segment)
+	return fmt.Sprintf("{%s}:%s", queue, segment)
 }
 
 /* Null cache driver */

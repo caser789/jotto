@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sync"
 )
 
 // Container - an IoC container
@@ -16,6 +17,7 @@ type Container interface {
 func NewContainer(app Application) Container {
 	return &container{
 		app:      app,
+		mutex:    &sync.Mutex{},
 		registry: make(map[interface{}]*typeRegistry),
 	}
 }
@@ -40,6 +42,7 @@ type typeRegistry struct {
 
 type container struct {
 	app      Application
+	mutex    *sync.Mutex
 	registry map[interface{}]*typeRegistry
 }
 
@@ -50,6 +53,10 @@ func (ioc *container) Register(template interface{}, tag interface{}, factory De
 		ok       bool
 		registry *typeRegistry
 	)
+
+	ioc.mutex.Lock()
+	defer ioc.mutex.Unlock()
+
 	kind = reflect.TypeOf(template)
 
 	if registry, ok = ioc.registry[kind]; !ok {
@@ -91,6 +98,9 @@ func (ioc *container) Make(ctx context.Context, value interface{}, tag interface
 	if entry, ok = registry.entries[tag]; !ok {
 		return fmt.Errorf("Entry `%v`.`%v` is not registered", kind, tag)
 	}
+
+	ioc.mutex.Lock()
+	defer ioc.mutex.Unlock()
 
 	if !entry.options.Singleton {
 		object, err = entry.factory(ctx, ioc.app)

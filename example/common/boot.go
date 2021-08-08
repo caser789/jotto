@@ -47,7 +47,7 @@ func Boot(payloads ...interface{}) {
 
 }
 
-func Panic(ctx context.Context, recover, request, response interface{}) {
+func Panic(ctx context.Context, app motto.Application, recover, request, response interface{}) {
 	reply := reflect.ValueOf(response)
 	reflect.Indirect(reply).FieldByName("RequestId").Set(reflect.ValueOf(proto.String(fmt.Sprintf("error:%v", recover))))
 }

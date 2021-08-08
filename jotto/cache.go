@@ -17,6 +17,7 @@ type CacheDriver interface {
 	GetVia(key string, handler func() (value string, expiration time.Duration, err error)) (string, error)
 	Set(key, value string, expiration time.Duration) error
 	Has(key string) (bool, error)
+	SetNX(key, value string, expiration time.Duration) (bool, error)
 	Del(keys ...string) (bool, error)
 	Flush() (bool, error)
 	// Incr - increment the given `key`
@@ -84,6 +85,11 @@ func (rd *RedisDriver) Set(key string, value string, expiration time.Duration) (
 	_, err = rd.client.Set(key, value, expiration).Result()
 
 	return
+}
+
+// SetNX - put `key` into Redis if `key` is not exist
+func (rd *RedisDriver) SetNX(key string, value string, expiration time.Duration) (bool, error) {
+	return rd.client.SetNX(key, value, expiration).Result()
 }
 
 // Has - check if `key` exists in Redis

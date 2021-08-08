@@ -63,12 +63,26 @@ type HttpRunner struct {
 func (r *HttpRunner) Run() (err error) {
 	fmt.Printf("Running %s server at %s\n", r.app.Protocol(), r.app.Address())
 
+	writeTimeout := r.app.Settings().Motto().WriteTimeout
+	if writeTimeout == 0 {
+		writeTimeout = 10
+	}
+
+	readTimeout := r.app.Settings().Motto().ReadTimeout
+	if readTimeout == 0 {
+		readTimeout = 10
+	}
+
+	idleTimeout := r.app.Settings().Motto().IdleTimeout
+	if idleTimeout == 0 {
+		idleTimeout = 30
+	}
 	r.server = &http.Server{
 		Addr: r.app.Address(),
 		// Good practice to set timeouts to avoid Slowloris attacks.
-		WriteTimeout: time.Second * 10,
-		ReadTimeout:  time.Second * 10,
-		IdleTimeout:  time.Second * 30,
+		WriteTimeout: time.Second * time.Duration(writeTimeout),
+		ReadTimeout:  time.Second * time.Duration(readTimeout),
+		IdleTimeout:  time.Second * time.Duration(idleTimeout),
 		Handler:      r.router, // Pass our instance of gorilla/mux in.
 	}
 

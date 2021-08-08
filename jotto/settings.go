@@ -28,6 +28,10 @@ type Settings struct {
 	Protocol string `json:"protocol" xml:"Protocol"`
 	Address  string `json:"address" xml:"Address"`
 
+	WriteTimeout int `json:"write-timeout" xml:"WriteTimeout"`
+	ReadTimeout  int `json:"read-timeout" xml:"ReadTimeout"`
+	IdleTimeout  int `json:"idle-timeout" xml:"IdleTimeout"`
+
 	Cache []*CacheSettings `json:"cache,omitempty" xml:"Cache>Instance,omitempty"`
 	Queue []*QueueSettings `json:"queue,omitempty" xml:"Queue>Instance,omitempty"`
 }

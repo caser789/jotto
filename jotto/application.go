@@ -1,6 +1,7 @@
 package jotto
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
@@ -14,7 +15,7 @@ type Application interface {
 	Run() error
 	Reload() error
 	Shutdown(timeout time.Duration) error
-	Execute(Processor, Context)
+	Execute(ctx context.Context, processor Processor, request, response interface{}) int32
 
 	Protocol() string
 	Address() string
@@ -26,7 +27,7 @@ type Application interface {
 	Settings() Configuration
 
 	SetContextFactory(ContextFactory)
-	MakeContext(Processor, *BaseContext) Context
+	MakeContext(Processor, context.Context) context.Context
 
 	SetLoggerFactory(LoggerFactory)
 	MakeLogger(LoggerContext) Logger
@@ -39,10 +40,10 @@ type Application interface {
 }
 
 const (
-	// HTTP the protocol
+	// HTTP - the HTTP protocol
 	HTTP = "HTTP"
 
-	// TCP the protocol
+	// TCP - the TCP protocol
 	TCP = "TCP"
 
 	// SPEX - the SPEX protocol
@@ -92,7 +93,7 @@ func NewApplication(settings Configuration, routes map[Route]Processor, jobs map
 		routes:         routes,
 		registry:       make(map[string]interface{}),
 		settings:       settings,
-		contextFactory: func(p Processor, c *BaseContext) Context { return c },
+		contextFactory: func(p Processor, c context.Context) context.Context { return c },
 		loggerFactory:  func(a Application, c LoggerContext) Logger { return NewStdoutLogger(c) },
 		cache:          make(map[string]CacheDriver),
 		queue:          make(map[string]*Queue),
@@ -158,7 +159,7 @@ func (app *BaseApplication) SetContextFactory(factory ContextFactory) {
 }
 
 // MakeContext creates an execution context using the context factory
-func (app *BaseApplication) MakeContext(processor Processor, ctx *BaseContext) Context {
+func (app *BaseApplication) MakeContext(processor Processor, ctx context.Context) context.Context {
 	return app.contextFactory(processor, ctx)
 }
 
@@ -209,19 +210,18 @@ func (app *BaseApplication) Shutdown(timeout time.Duration) (err error) {
 }
 
 // Execute executes a processor
-func (app *BaseApplication) Execute(processor Processor, ctx Context) {
-	app.ExecuteProcessor(processor, ctx, processor.Middlewares())
+func (app *BaseApplication) Execute(ctx context.Context, processor Processor, request, response interface{}) int32 {
+	return app.ExecuteProcessor(ctx, processor, processor.Middlewares(), request, response)
 }
 
 // ExecuteProcessor executes a processor
-func (app *BaseApplication) ExecuteProcessor(processor Processor, ctx Context, mids []Middleware) (err error) {
+func (app *BaseApplication) ExecuteProcessor(ctx context.Context, processor Processor, mids []Middleware, request, response interface{}) int32 {
 	if len(mids) == 0 {
-		processor.Handler()(app, ctx)
-		return
+		return processor.Handler()(ctx, app, request, response)
 	}
 
-	return mids[0](app, ctx, func(c Context) error {
-		return app.ExecuteProcessor(processor, c, mids[1:])
+	return mids[0](ctx, app, request, response, func(c context.Context) int32 {
+		return app.ExecuteProcessor(c, processor, mids[1:], request, response)
 	})
 }
 

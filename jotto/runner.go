@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -110,20 +111,21 @@ func (r *HttpRunner) handler(processor Processor, app Application) HttpHandler {
 			"trace_id": GenerateTraceID(),
 		})
 
-		ctx := &BaseContext{
-			Message:         proto.Clone(processor.Message()),
-			Reply:           proto.Clone(processor.Reply()),
-			Request:         request,
-			ResponseWritter: writer,
-			Logger:          logger,
-		}
+		ctx := context.Background()
 
-		context := app.MakeContext(processor, ctx)
+		message := proto.Clone(processor.Message())
+		reply := proto.Clone(processor.Reply())
+
+		ctx = context.WithValue(ctx, CtxHTTPRequest, request)
+		ctx = context.WithValue(ctx, CtxHTTPResponse, writer)
+		ctx = context.WithValue(ctx, CtxLogger, logger)
+
+		ctx = r.app.MakeContext(processor, ctx)
 
 		defer func() {
 			if err := recover(); err != nil {
-				logger.Errorf("Recover from panic: %v", err)
-				app.Fire(PanicEvent, context, err)
+				logger.Errorf("Recover from panic: %s: %s", err, debug.Stack())
+				app.Fire(PanicEvent, ctx, err)
 			}
 		}()
 
@@ -134,19 +136,19 @@ func (r *HttpRunner) handler(processor Processor, app Application) HttpHandler {
 			app.Fire(PanicEvent, ctx)
 		}
 
-		err = json.Unmarshal(body, &ctx.Message)
+		err = json.Unmarshal(body, &message)
 
 		if err != nil {
 			logger.Errorf("Failed to unmarshal incoming message. (body=%s)", body)
 			app.Fire(PanicEvent, ctx)
 		}
 
-		app.Execute(processor, context)
+		app.Execute(ctx, processor, message, reply)
 
-		resp, err := json.Marshal(ctx.Reply)
+		resp, err := json.Marshal(reply)
 
 		if err != nil {
-			logger.Errorf("Failed to marshal outgoing message. (reply=%v)", ctx.Reply)
+			logger.Errorf("Failed to marshal outgoing message. (reply=%v)", reply)
 			app.Fire(PanicEvent, ctx)
 		}
 
@@ -256,10 +258,8 @@ func (r *TcpRunner) worker(connection net.Conn) {
 
 		processor, exists := r.routes[kind]
 
-		ctx := &BaseContext{
-			MessageKind: kind,
-			Logger:      logger,
-		}
+		ctx := context.Background()
+		ctx = context.WithValue(ctx, CtxLogger, logger)
 
 		if !exists {
 			// The given message identifier (kind) does not exist in the routing
@@ -267,18 +267,19 @@ func (r *TcpRunner) worker(connection net.Conn) {
 			// case. The application is supposed to initialize the ctx.Reply field
 			// with a proper proto.Message and fill in the ctx.ReplyKind.
 			r.app.Fire(RouteNotFoundEvent, ctx)
-		} else {
-			ctx.Message = proto.Clone(processor.Message())
-			ctx.Reply = proto.Clone(processor.Reply())
-
-			context := r.app.MakeContext(processor, ctx)
-
-			proto.Unmarshal(input, ctx.Message)
-
-			r.app.Execute(processor, context)
+			continue
 		}
 
-		output, err := proto.Marshal(ctx.Reply)
+		ctx = r.app.MakeContext(processor, ctx)
+
+		message := proto.Clone(processor.Message())
+		reply := proto.Clone(processor.Reply())
+
+		proto.Unmarshal(input, message)
+
+		code := r.app.Execute(ctx, processor, message, reply)
+
+		output, err := proto.Marshal(reply)
 
 		if err != nil {
 			// In case of a marshal error, we will panic and let the application
@@ -286,7 +287,7 @@ func (r *TcpRunner) worker(connection net.Conn) {
 			r.app.Fire(PanicEvent, ctx)
 		}
 
-		err = line.Write(ctx.ReplyKind, output)
+		err = line.Write(uint32(code), output)
 
 		if err != nil {
 			logger.Errorf("Failed to write to hotline %s, error: %v", line, err)
@@ -562,6 +563,10 @@ func (r *SpexRunner) Run() (err error) {
 
 	// TODO: Register config & callback
 
+	if err = sps.Start(sps.WithStdoutLog()); err != nil {
+		panic(err)
+	}
+
 	sps.WaitExit()
 
 	return
@@ -569,17 +574,14 @@ func (r *SpexRunner) Run() (err error) {
 
 func (r *SpexRunner) wrap(processor Processor) sps.ProcessorFunc {
 	return func(ctx context.Context, request, response interface{}) (code uint32) {
-		logicCtx := &BaseContext{
-			Logger: sps.WithRequestInfo(ctx, splog.Log),
-		}
+		ctx = context.WithValue(ctx, CtxLogger, sps.WithRequestInfo(ctx, splog.Log))
+		ctx = r.app.MakeContext(processor, ctx)
 
-		logicCtx.Message = request.(proto.Message)
-		logicCtx.Reply = response.(proto.Message)
-
-		context := r.app.MakeContext(processor, logicCtx)
-
-		r.app.Execute(processor, context)
-
-		return context.Motto().ReplyKind
+		return uint32(r.app.Execute(ctx, processor, request, response))
 	}
+}
+
+// Shutdown - shutdown the runner
+func (r *SpexRunner) Shutdown(timeout time.Duration) error {
+	return nil
 }

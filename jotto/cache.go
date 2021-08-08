@@ -23,6 +23,8 @@ type CacheDriver interface {
 	Flush() (bool, error)
 	// Incr - increment the given `key`
 	Incr(key string) (int64, error)
+	// Decr - decrement the given `key`
+	Decr(key string) (int64, error)
 	// Expire - set the expire time of `key`
 	Expire(key string, expiry time.Duration) (bool, error)
 	// Guard - guard the execution of the `handler` function with a lock
@@ -117,6 +119,11 @@ func (rd *RedisDriver) Flush() (bool, error) {
 // Incr - increase the value of `key`
 func (rd *RedisDriver) Incr(key string) (int64, error) {
 	return rd.client.Incr(key).Result()
+}
+
+// Decr - decrease the value of `key`
+func (rd *RedisDriver) Decr(key string) (int64, error) {
+	return rd.client.Decr(key).Result()
 }
 
 // Expire - set the expire time of `key`
@@ -514,6 +521,11 @@ func (nd *NullDriver) Flush() (bool, error) {
 
 // Incr - increase by 1
 func (nd *NullDriver) Incr(key string) (int64, error) {
+	return 0, fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)
+}
+
+// Decr - decrease by 1
+func (nd *NullDriver) Decr(key string) (int64, error) {
 	return 0, fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)
 }
 

@@ -527,10 +527,6 @@ func (r *QueueWorkerRunner) process(processor QueueProcessor, job *Job, app Appl
 					action = "fail"
 				}
 			}
-			callbackProcessor, er := r.app.GetJobCallBackFunc(job.Type)
-			if er == nil {
-				callbackProcessor(Q, job, app, action, err)
-			}
 			logger.Dataf("QueueWorkerRunner|process|action=%s,err=%v,job_id=%s", action, perr, job.TraceID)
 		} else {
 			/*
@@ -546,10 +542,6 @@ func (r *QueueWorkerRunner) process(processor QueueProcessor, job *Job, app Appl
 			} else { // Failed 10 times in a row, giving up
 				err = Q.Fail(job)
 				action = "fail"
-			}
-			callbackProcessor, er := r.app.GetJobCallBackFunc(job.Type)
-			if er == nil {
-				callbackProcessor(Q, job, app, action, err)
 			}
 			logger.Dataf("QueueWorkerRunner|process|action=%s,err=%v,job_id=%s", action, err, job.TraceID)
 		}

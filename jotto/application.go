@@ -2,7 +2,6 @@ package jotto
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -44,9 +43,6 @@ type Application interface {
 
 	RegisterDaemon(name string, worker DaemonWorker, args ...interface{}) Daemon
 	GetDaemon(name string) (Daemon, error)
-
-	SetJobCallBackFunc(map[int]QueueCallbackProcessor)
-	GetJobCallBackFunc(job int) (QueueCallbackProcessor, error)
 }
 
 type PanicHandler func(ctx context.Context, app Application, recover, req, resp interface{})
@@ -378,19 +374,6 @@ func (app *BaseApplication) GetDaemon(name string) (daemon Daemon, err error) {
 		return nil, fmt.Errorf("daemon `%s` not registered", name)
 	}
 	return daemon, nil
-}
-
-//SetJobCallBackFunc by yufeng.
-func (app *BaseApplication) SetJobCallBackFunc(jobsCallBack map[int]QueueCallbackProcessor) {
-	app.queueCallbackProcessor = jobsCallBack
-}
-
-//GetJobCallBackFunc by yufeng.
-func (app *BaseApplication) GetJobCallBackFunc(job int) (QueueCallbackProcessor, error) {
-	if callbackProcess, ok := app.queueCallbackProcessor[job]; ok {
-		return callbackProcess, nil
-	}
-	return nil, errors.New(fmt.Sprintf("not fund, job type:%d", job))
 }
 
 // Initialize external services such as cache, queue

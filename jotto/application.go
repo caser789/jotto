@@ -40,7 +40,66 @@ type Application interface {
 	Register(name interface{}, factory Factory, singleton bool) error
 	// Make - create an instance of an entry in the IoC container
 	Make(ctx context.Context, name interface{}) (interface{}, error)
+
+	RegisterDaemon(name string, worker DaemonWorker, args ...interface{}) Daemon
+	GetDaemon(name string) (Daemon, error)
 }
+
+// Daemon - daemon running in background
+type Daemon interface {
+	Name() string
+	Done() <-chan struct{}
+	Start()
+	Cancel()
+}
+
+// NewDaemon - create a new daemon
+func NewDaemon(app Application, name string, worker DaemonWorker, args []interface{}) Daemon {
+	done := make(chan struct{})
+	cancel := make(chan struct{})
+
+	w := func(args ...interface{}) {
+		defer func() {
+			if r := recover(); r != nil {
+				close(done)
+			}
+		}()
+		worker(app, cancel, args...)
+		close(done)
+	}
+
+	return &daemon{
+		name:   name,
+		done:   done,
+		cancel: cancel,
+		worker: w,
+		args:   args,
+	}
+}
+
+type daemon struct {
+	name   string
+	done   chan struct{}
+	cancel chan struct{}
+	worker func(args ...interface{})
+	args   []interface{}
+}
+
+func (d *daemon) Name() string {
+	return d.name
+}
+func (d *daemon) Done() (done <-chan struct{}) {
+	return d.done
+}
+func (d *daemon) Start() {
+	go d.worker(d.args...)
+}
+func (d *daemon) Cancel() {
+	close(d.cancel)
+}
+
+// DaemonWorker - a worker that runs in the background while application is running
+type DaemonWorker func(app Application, cancel <-chan struct{}, args ...interface{})
 
 // Factory - a factory that
 type Factory func(ctx context.Context, app Application) (interface{}, error)
@@ -93,6 +152,9 @@ type BaseApplication struct {
 	registry  map[interface{}]*RegistryRecord
 	container map[interface{}]interface{}
 
+	// Background daemons
+	daemons map[string]Daemon
+
 	cache map[string]CacheDriver
 	queue map[string]*Queue
 	jobs  map[int]QueueProcessor
@@ -117,6 +179,7 @@ func NewApplication(settings Configuration, routes map[Route]Processor, jobs map
 		jobs:           jobs,
 		registry:       make(map[interface{}]*RegistryRecord),
 		container:      make(map[interface{}]interface{}),
+		daemons:        make(map[string]Daemon),
 	}
 
 	if runner != nil {
@@ -210,6 +273,11 @@ func (app *BaseApplication) Run() (err error) {
 		return fmt.Errorf("Unrecognised protocol: %s", app.protocol)
 	}
 
+	for _, daemon := range app.daemons {
+		fmt.Printf("start daemon %s", daemon.Name())
+		daemon.Start()
+	}
+
 	app.runner.Attach(app)
 
 	return app.runner.Run()
@@ -218,6 +286,10 @@ func (app *BaseApplication) Run() (err error) {
 // Shutdown shuts down the application
 func (app *BaseApplication) Shutdown(timeout time.Duration) (err error) {
 	app.Fire(TerminateEvent, app)
+	for _, daemon := range app.daemons {
+		fmt.Printf("stopping daemon %s", daemon.Name())
+		daemon.Cancel()
+	}
 	return app.runner.Shutdown(timeout)
 }
 
@@ -303,6 +375,24 @@ func (app *BaseApplication) Make(ctx context.Context, name interface{}) (instanc
 		return instance, nil
 	}
 	return record.factory(ctx, app)
+}
+
+// RegisterDaemon - register a daemon with the current application
+func (app *BaseApplication) RegisterDaemon(name string, worker DaemonWorker, args ...interface{}) (daemon Daemon) {
+	daemon = NewDaemon(app, name, worker, args)
+
+	app.daemons[name] = daemon
+
+	return
+}
+
+// GetDaemon - get a daemon from an applicaiton
+func (app *BaseApplication) GetDaemon(name string) (daemon Daemon, err error) {
+	var ok bool
+	if daemon, ok = app.daemons[name]; !ok {
+		return nil, fmt.Errorf("daemon `%s` not registered", name)
+	}
+	return daemon, nil
 }
 
 // Initialize external services such as cache, queue

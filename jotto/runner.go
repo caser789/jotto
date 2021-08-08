@@ -351,7 +351,7 @@ func (r *CliRunner) Run() (err error) {
 	command, err := r.bus.Find(name)
 
 	if err != nil {
-		fmt.Println("Cannot find command: %s (%v)", name, err)
+        fmt.Printf("Cannot find command: %s (%v)\n", name, err)
 		r.help()
 		return
 	}

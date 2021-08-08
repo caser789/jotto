@@ -11,13 +11,13 @@ import (
 // Custom loggers implemented by application must conform
 // to this interface.
 type Logger interface {
-	Trace(format string, v ...interface{})
-	Debug(format string, v ...interface{})
-	Info(format string, v ...interface{})
-	Data(format string, v ...interface{})
-	Warning(format string, v ...interface{})
-	Error(format string, v ...interface{})
-	Fatal(format string, v ...interface{})
+	Tracef(format string, v ...interface{})
+	Debugf(format string, v ...interface{})
+	Infof(format string, v ...interface{})
+	Dataf(format string, v ...interface{})
+	Warnf(format string, v ...interface{})
+	Errorf(format string, v ...interface{})
+	Fatalf(format string, v ...interface{})
 }
 
 // LoggerContext is a container to store contextual information
@@ -61,25 +61,38 @@ type StdoutLogger struct {
 	context LoggerContext
 }
 
-func (l *StdoutLogger) Trace(format string, v ...interface{}) {
+// Tracef logs at the `trace` level
+func (l *StdoutLogger) Tracef(format string, v ...interface{}) {
 	l.log("TRACE", format, v...)
 }
-func (l *StdoutLogger) Debug(format string, v ...interface{}) {
+
+// Debugf logs at the `debug` level
+func (l *StdoutLogger) Debugf(format string, v ...interface{}) {
 	l.log("DEBUG", format, v...)
 }
-func (l *StdoutLogger) Info(format string, v ...interface{}) {
+
+// Infof logs at the `info` level
+func (l *StdoutLogger) Infof(format string, v ...interface{}) {
 	l.log("INFO", format, v...)
 }
-func (l *StdoutLogger) Data(format string, v ...interface{}) {
+
+// Dataf logs at the `data` level
+func (l *StdoutLogger) Dataf(format string, v ...interface{}) {
 	l.log("DATA", format, v...)
 }
-func (l *StdoutLogger) Warning(format string, v ...interface{}) {
+
+// Warnf logs at the `warn` level
+func (l *StdoutLogger) Warnf(format string, v ...interface{}) {
 	l.log("WARN", format, v...)
 }
-func (l *StdoutLogger) Error(format string, v ...interface{}) {
+
+// Errorf logs at the `error` level
+func (l *StdoutLogger) Errorf(format string, v ...interface{}) {
 	l.log("ERROR", format, v...)
 }
-func (l *StdoutLogger) Fatal(format string, v ...interface{}) {
+
+// Fatalf logs at the `fatal` level
+func (l *StdoutLogger) Fatalf(format string, v ...interface{}) {
 	l.log("FATAL", format, v...)
 }
 

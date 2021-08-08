@@ -44,6 +44,9 @@ const (
 
 	// TCP the protocol
 	TCP = "TCP"
+
+	// SPEX - the SPEX protocol
+	SPEX = "SPEX"
 )
 
 var (

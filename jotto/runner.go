@@ -17,6 +17,8 @@ import (
 	"github.com/gorilla/mux"
 
 	"git.garena.com/duanzy/motto/hotline"
+	"git.garena.com/shopee/golang_splib/splog"
+	"git.garena.com/shopee/golang_splib/sps"
 	"github.com/gogo/protobuf/proto"
 )
 
@@ -120,7 +122,7 @@ func (r *HttpRunner) handler(processor Processor, app Application) HttpHandler {
 
 		defer func() {
 			if err := recover(); err != nil {
-				logger.Error("Recover from panic: %v", err)
+				logger.Errorf("Recover from panic: %v", err)
 				app.Fire(PanicEvent, context, err)
 			}
 		}()
@@ -128,14 +130,14 @@ func (r *HttpRunner) handler(processor Processor, app Application) HttpHandler {
 		body, err := ioutil.ReadAll(request.Body)
 
 		if err != nil {
-			logger.Error("Failed to read request body")
+			logger.Errorf("Failed to read request body")
 			app.Fire(PanicEvent, ctx)
 		}
 
 		err = json.Unmarshal(body, &ctx.Message)
 
 		if err != nil {
-			logger.Error("Failed to unmarshal incoming message. (body=%s)", body)
+			logger.Errorf("Failed to unmarshal incoming message. (body=%s)", body)
 			app.Fire(PanicEvent, ctx)
 		}
 
@@ -144,7 +146,7 @@ func (r *HttpRunner) handler(processor Processor, app Application) HttpHandler {
 		resp, err := json.Marshal(ctx.Reply)
 
 		if err != nil {
-			logger.Error("Failed to marshal outgoing message. (reply=%v)", ctx.Reply)
+			logger.Errorf("Failed to marshal outgoing message. (reply=%v)", ctx.Reply)
 			app.Fire(PanicEvent, ctx)
 		}
 
@@ -176,12 +178,12 @@ func (r *TcpRunner) Attach(app Application) (err error) {
 // Run starts the TCP server and serves incoming requests
 func (r *TcpRunner) Run() (err error) {
 	logger := r.app.MakeLogger(nil)
-	logger.Debug("Running %s server at %s", r.app.Protocol(), r.app.Address())
+	logger.Debugf("Running %s server at %s", r.app.Protocol(), r.app.Address())
 
 	listener, err := r.app.GetListener()
 
 	if err != nil {
-		logger.Fatal("Failed to listen on (%s//%s). (error=%v)", r.app.Protocol(), r.app.Address(), err)
+		logger.Fatalf("Failed to listen on (%s//%s). (error=%v)", r.app.Protocol(), r.app.Address(), err)
 		return
 	}
 
@@ -191,7 +193,7 @@ func (r *TcpRunner) Run() (err error) {
 		connection, err := listener.Accept()
 
 		if err != nil {
-			logger.Error("Failed to accept incomming connection. (error=%v)", err)
+			logger.Errorf("Failed to accept incomming connection. (error=%v)", err)
 			continue
 		}
 
@@ -237,17 +239,17 @@ func (r *TcpRunner) worker(connection net.Conn) {
 			"trace_id": GenerateTraceID(),
 		})
 
-		logger.Trace("Logger created")
+		logger.Tracef("Logger created")
 
 		kind, input, err := line.Read()
 
 		if err != nil {
 			if neterr, ok := err.(net.Error); ok && neterr.Timeout() {
-				logger.Error("Hotline %s timed out, error: %v", line, err)
+				logger.Errorf("Hotline %s timed out, error: %v", line, err)
 			} else if err == io.EOF {
 				// Ignore
 			} else {
-				logger.Error("Failed to read from hotline %s, error: %v", line, err)
+				logger.Errorf("Failed to read from hotline %s, error: %v", line, err)
 			}
 			return
 		}
@@ -287,7 +289,7 @@ func (r *TcpRunner) worker(connection net.Conn) {
 		err = line.Write(ctx.ReplyKind, output)
 
 		if err != nil {
-			logger.Error("Failed to write to hotline %s, error: %v", line, err)
+			logger.Errorf("Failed to write to hotline %s, error: %v", line, err)
 		}
 	}
 }
@@ -387,7 +389,7 @@ func (r *QueueWorkerRunner) Run() error {
 
 		ok := r.acquire(time.Second * 2)
 		if !ok {
-			logger.Trace("Failed to get hold of an available worker. Giving up.")
+			logger.Tracef("Failed to get hold of an available worker. Giving up.")
 			continue
 		}
 
@@ -395,20 +397,20 @@ func (r *QueueWorkerRunner) Run() error {
 
 		if err != nil {
 			if err != redis.Nil {
-				logger.Error("Pop job error: %v", err)
+				logger.Errorf("Pop job error: %v", err)
 			}
 			r.release()
 			continue
 		}
 
-		logger.Data("Received job: %+v", job)
+		logger.Dataf("Received job: %+v", job)
 
 		jobs := r.app.Jobs()
 
 		processor, ok := jobs[job.Type]
 
 		if !ok {
-			logger.Error("Job processor not found for job %s", job.TraceID)
+			logger.Errorf("Job processor not found for job %s", job.TraceID)
 			Q.Fail(job)
 			r.release()
 			continue
@@ -445,7 +447,7 @@ func (r *QueueWorkerRunner) process(processor QueueProcessor, job *Job, app Appl
 		er := Q.Attempt(job)
 
 		if er != nil {
-			logger.Error("Attemp job failure: %v", er)
+			logger.Errorf("Attemp job failure: %v", er)
 		}
 
 		if ex := recover(); ex == nil {
@@ -466,12 +468,12 @@ func (r *QueueWorkerRunner) process(processor QueueProcessor, job *Job, app Appl
 				action = "requeue"
 			}
 
-			logger.Data("Queue: action=%s, err=%v, job: %s", action, perr, job.TraceID)
+			logger.Dataf("Queue: action=%s, err=%v, job: %s", action, perr, job.TraceID)
 		} else {
 			/*
 			 * Job processor crashed, enter exception handling logic.
 			 */
-			logger.Error("Job crashed with error: %v. Job: %s", ex, job.TraceID)
+			logger.Errorf("Job crashed with error: %v. Job: %s", ex, job.TraceID)
 
 			action := ""
 			if job.Attempts < 5 { // Requeue the job for retry
@@ -485,12 +487,12 @@ func (r *QueueWorkerRunner) process(processor QueueProcessor, job *Job, app Appl
 				action = "fail"
 			}
 
-			logger.Data("Queue: action=%s, err=%v, job: %s", action, err, job.TraceID)
+			logger.Dataf("Queue: action=%s, err=%v, job: %s", action, err, job.TraceID)
 		}
 
 		ok := r.release()
 		if !ok {
-			logger.Error("Queue: worker pool full, cannot release worker. Terminate without replenishing the pool.")
+			logger.Errorf("Queue: worker pool full, cannot release worker. Terminate without replenishing the pool.")
 		}
 	}()
 
@@ -514,20 +516,70 @@ func (r *QueueWorkerRunner) watcher() {
 				scheduled, err := Q.driver.ScheduleDeferred(Q.name)
 
 				if err == nil {
-					logger.Data("Queue: scheduled %d jobs.", scheduled)
+					logger.Dataf("Queue: scheduled %d jobs.", scheduled)
 				} else {
-					logger.Error("Queue: failed to schedule deferred jobs. (err=%v)", err)
+					logger.Errorf("Queue: failed to schedule deferred jobs. (err=%v)", err)
 				}
 			}
 		} else {
-			logger.Error("Queue: failed to retrieve queue stats. (err=%v)", err)
+			logger.Errorf("Queue: failed to retrieve queue stats. (err=%v)", err)
 		}
 
 		time.Sleep(time.Duration(1) * time.Second)
 	}
 }
 
+// Shutdown - shutdown the runner
 func (r *QueueWorkerRunner) Shutdown(timeout time.Duration) error {
 	r.alive = false
 	return nil
+}
+
+// SpexRunner - run the application in Spex
+type SpexRunner struct {
+	app Application
+}
+
+// Attach - attach application to runner
+func (r *SpexRunner) Attach(app Application) (err error) {
+	r.app = app
+	return
+}
+
+// Run - run the application
+func (r *SpexRunner) Run() (err error) {
+	sps.Init()
+
+	// Register processors
+	for route, processor := range r.app.Routes() {
+		sps.RegisterProcessor(&sps.ProcessorConfig{
+			Command:   route.URI(),
+			Processor: r.wrap(processor),
+			Req:       processor.Message(),
+			Resp:      processor.Reply(),
+		})
+	}
+
+	// TODO: Register config & callback
+
+	sps.WaitExit()
+
+	return
+}
+
+func (r *SpexRunner) wrap(processor Processor) sps.ProcessorFunc {
+	return func(ctx context.Context, request, response interface{}) (code uint32) {
+		logicCtx := &BaseContext{
+			Logger: sps.WithRequestInfo(ctx, splog.Log),
+		}
+
+		logicCtx.Message = request.(proto.Message)
+		logicCtx.Reply = response.(proto.Message)
+
+		context := r.app.MakeContext(processor, logicCtx)
+
+		r.app.Execute(processor, context)
+
+		return context.Motto().ReplyKind
+	}
 }

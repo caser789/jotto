@@ -490,6 +490,11 @@ func (nd *NullDriver) Set(key string, value string, expiration time.Duration) er
 	return fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)
 }
 
+// SetNX - put `key` into Redis if `key` is not exist
+func (nd *NullDriver) SetNX(key string, value string, expiration time.Duration) (bool, error) {
+	return false, fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)
+}
+
 // Has - check existence
 func (nd *NullDriver) Has(key string) (bool, error) {
 	return false, fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)

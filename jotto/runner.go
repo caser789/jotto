@@ -513,6 +513,7 @@ func (r *QueueWorkerRunner) process(processor QueueProcessor, job *Job, app Appl
 			 * Job processor crashed, enter exception handling logic.
 			 */
 			logger.Errorf("QueueWorkerRunner|process|job_crashed|error=%v,job_id=%s", ex, job.TraceID)
+			logger.Errorf("QueueWorkerRunner|process|panic=%v,stack=%s", ex, debug.Stack())
 
 			action := ""
 			if job.Attempts <= 10 { // Backoff exponentially for 10 times

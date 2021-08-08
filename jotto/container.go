@@ -106,13 +106,18 @@ func (ioc *container) Make(ctx context.Context, value interface{}, tag interface
 		object, err = entry.factory(ctx, ioc.app)
 	} else {
 		if object, ok = registry.objects[tag]; !ok {
-			object, err = entry.factory(ctx, ioc.app)
+			if object, err = entry.factory(ctx, ioc.app); err == nil {
+				registry.objects[tag] = object
+			}
 		}
-		registry.objects[tag] = object
 	}
 
 	if err != nil {
 		return err
+	}
+
+	if object == nil {
+		return fmt.Errorf("Object is nil")
 	}
 
 	v := reflect.Indirect(reflect.ValueOf(value))

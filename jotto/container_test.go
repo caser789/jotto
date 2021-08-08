@@ -2,6 +2,7 @@ package motto_test
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -58,4 +59,44 @@ func TestContainerCanRegisterAndMakeNonSingletons(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Equal(t, reflect.TypeOf(&dummyAgent{}), reflect.TypeOf(template))
+}
+
+func TestContainerSingletonError(t *testing.T) {
+	var (
+		app      motto.Application
+		template MyAgent
+		err      error
+	)
+	errorContainer := errors.New("error")
+	container := motto.NewContainer(app)
+
+	container.Register(&template, nil, func(ctx context.Context, app motto.Application) (interface{}, error) {
+		return nil, errorContainer
+	}, &motto.DepOptions{
+		Singleton: true,
+	})
+
+	err = container.Make(context.TODO(), &template, nil)
+	assert.Equal(t, errorContainer, err)
+	err = container.Make(context.TODO(), &template, nil)
+	assert.Equal(t, errorContainer, err)
+}
+
+func TestContainerNilError(t *testing.T) {
+	var (
+		app      motto.Application
+		template MyAgent
+		err      error
+	)
+	container := motto.NewContainer(app)
+
+	container.Register(&template, nil, func(ctx context.Context, app motto.Application) (interface{}, error) {
+		return nil, nil
+	}, &motto.DepOptions{
+		Singleton: false,
+	})
+
+	err = container.Make(context.TODO(), &template, nil)
+	assert.Nil(t, template)
+	assert.NotNil(t, err)
 }

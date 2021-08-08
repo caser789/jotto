@@ -106,6 +106,9 @@ var ErrorJobHandled = errors.New("job is handled by processor; runner does not n
 // ErrorJobMustRetry description in error message
 var ErrorJobMustRetry = errors.New("job must be retried regardless of its attempts count")
 
+// ErrorNilPoiner - nil pointer error
+var ErrorNilPoiner = errors.New("nil pointer")
+
 // Queue represents a logical queue that can receive async jobs
 // Multiple Queues may share the same underlying QueueDriver.
 type Queue struct {
@@ -123,59 +126,95 @@ func NewQueue(name string, driver QueueDriver) *Queue {
 
 // Name returns the name of the queue
 func (q *Queue) Name() string {
+	if q == nil {
+		return ""
+	}
 	return q.name
 }
 
 // Driver returns the underlying driver of the queue
 func (q *Queue) Driver() QueueDriver {
+	if q == nil {
+		return nil
+	}
 	return q.driver
 }
 
 // Enqueue sends a job to queue
 func (q *Queue) Enqueue(job *Job) error {
+	if q == nil {
+		return ErrorNilPoiner
+	}
 	return q.driver.Enqueue(q.name, job)
 }
 
 // Schedule a job to run at a future time
 func (q *Queue) Schedule(job *Job, at time.Time) error {
+	if q == nil {
+		return ErrorNilPoiner
+	}
 	return q.driver.Schedule(q.name, job, at)
 }
 
 // Dequeue retrieves a job from queue
 func (q *Queue) Dequeue() (*Job, error) {
+	if q == nil {
+		return nil, ErrorNilPoiner
+	}
 	return q.driver.Dequeue(q.name)
 }
 
 // Attempt increases the attempt count and sets the last attempt timestamp.
 func (q *Queue) Attempt(job *Job) error {
+	if q == nil {
+		return ErrorNilPoiner
+	}
 	return q.driver.Attempt(q.name, job)
 }
 
 // Requeue increases the attempt count of a job and requeues it
 func (q *Queue) Requeue(job *Job) error {
+	if q == nil {
+		return ErrorNilPoiner
+	}
 	return q.driver.Requeue(q.name, job)
 }
 
 // Complete marks a job as completed and remove it from the queue
 func (q *Queue) Complete(job *Job) error {
+	if q == nil {
+		return ErrorNilPoiner
+	}
 	return q.driver.Complete(q.name, job)
 }
 
 // Defer a job to be processed at a later time
 func (q *Queue) Defer(job *Job, after time.Duration) error {
+	if q == nil {
+		return ErrorNilPoiner
+	}
 	return q.driver.Defer(q.name, job, after)
 }
 
 // Fail marks a job as failed and move it to the failed list
 func (q *Queue) Fail(job *Job) error {
+	if q == nil {
+		return ErrorNilPoiner
+	}
 	return q.driver.Fail(q.name, job)
 }
 
 func (q *Queue) RequeueAllFailed() ([]string, error) {
+	if q == nil {
+		return nil, ErrorNilPoiner
+	}
 	return q.driver.RequeueAllFailed(q.name)
 }
 
 // Stats gets the stats of a quuee
 func (q *Queue) Stats() (*QueueStats, error) {
+	if q == nil {
+		return nil, ErrorNilPoiner
+	}
 	return q.driver.Stats(q.name)
 }

@@ -3,6 +3,7 @@ package jotto
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -32,13 +33,14 @@ type CacheDriver interface {
 type RedisDriver struct {
 	name     string
 	settings *RedisSettings
-	client   *redis.Client
+	client   redis.UniversalClient
 }
 
 // NewRedisDriver - create a Redis driver
 func NewRedisDriver(name string, settings *RedisSettings) *RedisDriver {
-	client := redis.NewClient(&redis.Options{
-		Addr:         settings.Address,
+	addrs := strings.Split(settings.Address, ";")
+	client := redis.NewUniversalClient(&redis.UniversalOptions{
+		Addrs:        addrs,
 		Password:     settings.Password,
 		DB:           settings.Database,
 		DialTimeout:  time.Second * time.Duration(settings.DialTimeout),

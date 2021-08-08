@@ -45,7 +45,7 @@ type Application interface {
 	GetDaemon(name string) (Daemon, error)
 }
 
-type PanicHandler func(ctx context.Context, recover, req, resp interface{})
+type PanicHandler func(ctx context.Context, app Application, recover, req, resp interface{})
 
 // Daemon - daemon running in background
 type Daemon interface {
@@ -352,7 +352,7 @@ func (app *BaseApplication) SetPanicHandler(handler PanicHandler) {
 }
 func (app *BaseApplication) Panic(ctx context.Context, recover, req, resp interface{}) {
 	if app.panicHandler != nil {
-		app.panicHandler(ctx, recover, req, resp)
+		app.panicHandler(ctx, app, recover, req, resp)
 	}
 }
 

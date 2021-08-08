@@ -103,6 +103,9 @@ type QueueProcessor func(*Queue, *Job, Application, Logger) error
 // ErrorJobHandled description in error message
 var ErrorJobHandled = errors.New("job is handled by processor; runner does not need to do anything (requeue,complete,defer,fail) with this job")
 
+// ErrorJobMustRetry description in error message
+var ErrorJobMustRetry = errors.New("job must be retried regardless of its attempts count")
+
 // Queue represents a logical queue that can receive async jobs
 // Multiple Queues may share the same underlying QueueDriver.
 type Queue struct {

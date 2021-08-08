@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -477,7 +478,7 @@ func (r *QueueWorkerRunner) process(processor QueueProcessor, job *Job, app Appl
 		er := Q.Attempt(job)
 
 		if er != nil {
-			logger.Errorf("Attemp job failure: %v", er)
+			logger.Errorf("QueueWorkerRunner|process|attemp_job_failure:%v", er)
 		}
 
 		if ex := recover(); ex == nil {
@@ -490,39 +491,44 @@ func (r *QueueWorkerRunner) process(processor QueueProcessor, job *Job, app Appl
 			switch err {
 			case ErrorJobHandled: // ignore handled job
 				action = "ignore"
+			case ErrorJobMustRetry: // we must retry this job; use exponential backoff to attempt it later
+				perr = Q.Defer(job, r.backoff(job.Attempts))
+				action = "defer"
 			case nil: // auto complete
 				perr = Q.Complete(job)
 				action = "complete"
 			default: // auto retry on error
-				perr = Q.Requeue(job)
-				action = "requeue"
+				if job.Attempts <= 10 { // Backoff exponentially for 10 times
+					perr = Q.Defer(job, r.backoff(job.Attempts))
+					action = "defer"
+				} else { // Failed 10 times in a row, giving up
+					perr = Q.Fail(job)
+					action = "fail"
+				}
 			}
 
-			logger.Dataf("Queue: action=%s, err=%v, job: %s", action, perr, job.TraceID)
+			logger.Dataf("QueueWorkerRunner|process|action=%s,err=%v,job_id=%s", action, perr, job.TraceID)
 		} else {
 			/*
 			 * Job processor crashed, enter exception handling logic.
 			 */
-			logger.Errorf("Job crashed with error: %v. Job: %s", ex, job.TraceID)
+			logger.Errorf("QueueWorkerRunner|process|job_crashed|error=%v,job_id=%s", ex, job.TraceID)
 
 			action := ""
-			if job.Attempts < 5 { // Requeue the job for retry
-				err = Q.Requeue(job)
-				action = "requeue"
-			} else if job.Attempts < 10 { // Attempted 5 times without success, let's retry at a later time.
-				err = Q.Defer(job, time.Duration(10)*time.Second)
+			if job.Attempts <= 10 { // Backoff exponentially for 10 times
+				err = Q.Defer(job, r.backoff(job.Attempts))
 				action = "defer"
 			} else { // Failed 10 times in a row, giving up
 				err = Q.Fail(job)
 				action = "fail"
 			}
 
-			logger.Dataf("Queue: action=%s, err=%v, job: %s", action, err, job.TraceID)
+			logger.Dataf("QueueWorkerRunner|process|action=%s,err=%v,job_id=%s", action, err, job.TraceID)
 		}
 
 		ok := r.release()
 		if !ok {
-			logger.Errorf("Queue: worker pool full, cannot release worker. Terminate without replenishing the pool.")
+			logger.Errorf("QueueWorkerRunner|process|worker_pool_full|cannot_release_worker|terminate_without_replenishing_the_pool")
 		}
 	}()
 
@@ -530,6 +536,10 @@ func (r *QueueWorkerRunner) process(processor QueueProcessor, job *Job, app Appl
 	err = processor(Q, job, app, logger)
 
 	return
+}
+
+func (r *QueueWorkerRunner) backoff(attempt int64) time.Duration {
+	return time.Second * time.Duration(math.Pow(2, float64(attempt)))
 }
 
 func (r *QueueWorkerRunner) watcher() {

@@ -37,7 +37,15 @@ type Application interface {
 
 	GetListener() (net.Listener, error)
 	SetListener(net.Listener)
+
+	// Register - register an entry in the IoC container
+	Register(name interface{}, factory Factory, singleton bool) error
+	// Make - create an instance of an entry in the IoC container
+	Make(ctx context.Context, name interface{}) (interface{}, error)
 }
+
+// Factory - a factory that
+type Factory func(ctx context.Context, app Application) (interface{}, error)
 
 const (
 	// HTTP - the HTTP protocol
@@ -77,6 +85,9 @@ type BaseApplication struct {
 	settings       Configuration
 	contextFactory ContextFactory
 	loggerFactory  LoggerFactory
+
+	// An IoC container
+	container map[interface{}]Factory
 
 	cache map[string]CacheDriver
 	queue map[string]*Queue
@@ -272,6 +283,28 @@ func (app *BaseApplication) GetListener() (listener net.Listener, err error) {
 
 func (app *BaseApplication) SetListener(listener net.Listener) {
 	app.listener = listener
+}
+
+// Register - register an entry in the IoC container
+func (app *BaseApplication) Register(name interface{}, factory Factory, singleton bool) (err error) {
+	if _, ok := app.container[name]; ok {
+		return fmt.Errorf("motto: `%v` already registered", name)
+	}
+
+	app.container[name] = factory
+	return nil
+}
+
+// Make - create an instance of an entry in the IoC container
+func (app *BaseApplication) Make(ctx context.Context, name interface{}) (instance interface{}, err error) {
+	var (
+		factory Factory
+		ok      bool
+	)
+	if factory, ok = app.container[name]; ok {
+		return nil, fmt.Errorf("motto: `%v` is not registered", name)
+	}
+	return factory(ctx, app)
 }
 
 // Initialize external services such as cache, queue

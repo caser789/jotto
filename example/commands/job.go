@@ -32,7 +32,7 @@ func (i *Job) Boot(flagSet *flag.FlagSet) (err error) {
 
 func (i *Job) Run(app motto.Application, args []string) (err error) {
 
-	app.Queue("default").Enqueue(&motto.Job{
+	app.Queue("default:main").Enqueue(&motto.Job{
 		Type:        1,
 		Payload:     fmt.Sprintf(`{"name": "%s", "age": 31}`, i.text),
 		Attempts:    0,

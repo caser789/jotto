@@ -36,10 +36,7 @@ type Application interface {
 	GetListener() (net.Listener, error)
 	SetListener(net.Listener)
 
-	// Register - register an entry in the IoC container
-	Register(name interface{}, factory Factory, singleton bool) error
-	// Make - create an instance of an entry in the IoC container
-	Make(ctx context.Context, name interface{}) (interface{}, error)
+	Container() Container
 
 	RegisterDaemon(name string, worker DaemonWorker, args ...interface{}) Daemon
 	GetDaemon(name string) (Daemon, error)
@@ -101,15 +98,6 @@ func (d *daemon) Cancel() {
 // DaemonWorker - a worker that runs in the background while application is running
 type DaemonWorker func(app Application, cancel <-chan struct{}, args ...interface{})
 
-// Factory - a factory that
-type Factory func(ctx context.Context, app Application) (interface{}, error)
-
-// RegistryRecord - a registry record of the IoC container
-type RegistryRecord struct {
-	factory   Factory
-	singleton bool
-}
-
 const (
 	// HTTP - the HTTP protocol
 	HTTP = "HTTP"
@@ -149,8 +137,7 @@ type BaseApplication struct {
 	loggerFactory  LoggerFactory
 
 	// An IoC container
-	registry  map[interface{}]*RegistryRecord
-	container map[interface{}]interface{}
+	container Container
 
 	// Background daemons
 	daemons map[string]Daemon
@@ -177,10 +164,10 @@ func NewApplication(settings Configuration, routes map[Route]Processor, jobs map
 		cache:          make(map[string]CacheDriver),
 		queue:          make(map[string]*Queue),
 		jobs:           jobs,
-		registry:       make(map[interface{}]*RegistryRecord),
-		container:      make(map[interface{}]interface{}),
 		daemons:        make(map[string]Daemon),
 	}
+
+	app.container = NewContainer(app)
 
 	if runner != nil {
 		app.runner = runner
@@ -349,32 +336,8 @@ func (app *BaseApplication) SetListener(listener net.Listener) {
 	app.listener = listener
 }
 
-// Register - register an entry in the IoC container
-func (app *BaseApplication) Register(name interface{}, factory Factory, singleton bool) (err error) {
-	if _, ok := app.registry[name]; ok {
-		return fmt.Errorf("motto: `%v` already registered", name)
-	}
-
-	app.registry[name] = &RegistryRecord{factory, singleton}
-	return nil
-}
-
-// Make - create an instance of an entry in the IoC container
-func (app *BaseApplication) Make(ctx context.Context, name interface{}) (instance interface{}, err error) {
-	defer func() {
-		app.container[name] = instance
-	}()
-	var (
-		record *RegistryRecord
-		ok     bool
-	)
-	if record, ok = app.registry[name]; !ok {
-		return nil, fmt.Errorf("motto: `%v` is not registered", name)
-	}
-	if instance, ok = app.container[name]; ok && record.singleton {
-		return instance, nil
-	}
-	return record.factory(ctx, app)
+func (app *BaseApplication) Container() Container {
+	return app.container
 }
 
 // RegisterDaemon - register a daemon with the current application

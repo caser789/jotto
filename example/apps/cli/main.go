@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"git.garena.com/duanzy/motto/motto"
 	"git.garena.com/duanzy/motto/sample/commands"
@@ -16,7 +17,7 @@ func main() {
 	bus.Register(commands.NewTest())
 	bus.Register(commands.NewWait())
 
-	runner := motto.NewCliRunner(bus)
+	runner := motto.NewCliRunner(bus, os.Args[1:])
 
 	cfg := common.NewConfiguration("conf/conf.xml")
 	app := motto.NewApplication(cfg, routes.Routes, nil, runner)

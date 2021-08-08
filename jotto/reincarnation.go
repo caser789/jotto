@@ -58,11 +58,6 @@ func (s *Soul) Serve() error {
 
 	time.Sleep(time.Millisecond * 200)
 
-	for _, app := range s.apps {
-		l, err := app.GetListener()
-		fmt.Println("listener: ", l, err)
-	}
-
 	s.listen()
 
 	return nil

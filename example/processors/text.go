@@ -1,21 +1,22 @@
 package processors
 
 import (
+	"context"
 	"strings"
 	"time"
 
-	pb "github.com/caser789/jotto/example/protocol"
-	"github.com/caser789/jotto/jotto"
+	"git.garena.com/duanzy/motto/motto"
+	pb "git.garena.com/duanzy/motto/sample/protocol"
 	"github.com/gogo/protobuf/proto"
 )
 
-func Text(app motto.Application, context motto.Context) {
-	ctx := context.Motto()
+func Text(ctx context.Context, app motto.Application, request, response interface{}) (int32, context.Context) {
+	logger := motto.GetLogger(ctx)
 
-	ctx.Logger.Debug("debug message from processor, time: %v", time.Now())
+	logger.Debugf("debug message from processor, time: %v", time.Now())
 
-	message := ctx.Message.(*pb.ReqText)
-	reply := ctx.Reply.(*pb.RespText)
+	message := request.(*pb.ReqText)
+	reply := response.(*pb.RespText)
 
 	text := message.GetText()
 
@@ -30,5 +31,5 @@ func Text(app motto.Application, context motto.Context) {
 
 	reply.Text = proto.String(text)
 
-	ctx.ReplyKind = uint32(pb.MSG_KIND_RESP_TEXT)
+	return int32(pb.MSG_KIND_RESP_TEXT), ctx
 }

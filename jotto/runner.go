@@ -37,17 +37,17 @@ func NewRunner(protocol string) (runner Runner) {
 		runner = &HttpRunner{
 			router: mux.NewRouter(),
 		}
-		return runner
 	case TCP:
 		runner = &TcpRunner{
 			routes: make(map[uint32]Processor),
 			alive:  true,
 			wg:     &sync.WaitGroup{},
 		}
-		return runner
+	case SPEX:
+		runner = &SpexRunner{}
 	}
 
-	return nil
+	return
 }
 
 // HttpHandler is a HTTP handler used in the net.http package.
@@ -120,7 +120,7 @@ func (r *HttpRunner) handler(processor Processor, app Application) HttpHandler {
 		ctx = context.WithValue(ctx, CtxHTTPResponse, writer)
 		ctx = context.WithValue(ctx, CtxLogger, logger)
 
-		ctx = r.app.MakeContext(processor, ctx)
+		ctx = r.app.MakeContext(ctx, processor)
 
 		defer func() {
 			if err := recover(); err != nil {
@@ -130,6 +130,8 @@ func (r *HttpRunner) handler(processor Processor, app Application) HttpHandler {
 		}()
 
 		body, err := ioutil.ReadAll(request.Body)
+
+		ctx = context.WithValue(ctx, CtxHTTPRequestBody, body)
 
 		if err != nil {
 			logger.Errorf("Failed to read request body")
@@ -143,16 +145,35 @@ func (r *HttpRunner) handler(processor Processor, app Application) HttpHandler {
 			app.Fire(PanicEvent, ctx)
 		}
 
-		app.Execute(ctx, processor, message, reply)
+		_, ctx = app.Execute(ctx, processor, message, reply)
 
-		resp, err := json.Marshal(reply)
+		var resp []byte
+		if v, ok := ctx.Value(CtxHTTPResponseBody).([]byte); ok {
+			// Response body generated, directly use it
+			resp = v
+		} else {
+			// Response body not generated, marshal from proto message
+			resp, err = json.Marshal(reply)
 
-		if err != nil {
-			logger.Errorf("Failed to marshal outgoing message. (reply=%v)", reply)
-			app.Fire(PanicEvent, ctx)
+			if err != nil {
+				logger.Errorf("Failed to marshal outgoing message. (reply=%v)", reply)
+				app.Fire(PanicEvent, ctx)
+			}
 		}
 
 		writer.Header().Set("Content-Type", "application/json")
+
+		// Attach headers emitted by application
+		if headers, ok := ctx.Value(CtxHTTPResponseHeaders).(map[string]string); ok {
+			for k, v := range headers {
+				writer.Header().Set(k, v)
+			}
+		}
+
+		if status, ok := ctx.Value(CtxHTTPStatus).(int); ok {
+			writer.WriteHeader(status)
+		}
+
 		writer.Write(resp)
 	}
 }
@@ -270,14 +291,14 @@ func (r *TcpRunner) worker(connection net.Conn) {
 			continue
 		}
 
-		ctx = r.app.MakeContext(processor, ctx)
+		ctx = r.app.MakeContext(ctx, processor)
 
 		message := proto.Clone(processor.Message())
 		reply := proto.Clone(processor.Reply())
 
 		proto.Unmarshal(input, message)
 
-		code := r.app.Execute(ctx, processor, message, reply)
+		code, ctx := r.app.Execute(ctx, processor, message, reply)
 
 		output, err := proto.Marshal(reply)
 
@@ -297,13 +318,15 @@ func (r *TcpRunner) worker(connection net.Conn) {
 
 // CliRunner is the built-in runner for running the application on command line
 type CliRunner struct {
-	app Application
-	bus *CommandBus
+	app  Application
+	bus  *CommandBus
+	args []string
 }
 
-func NewCliRunner(bus *CommandBus) (runner *CliRunner) {
+func NewCliRunner(bus *CommandBus, args []string) (runner *CliRunner) {
 	return &CliRunner{
-		bus: bus,
+		bus:  bus,
+		args: args,
 	}
 }
 
@@ -313,17 +336,19 @@ func (r *CliRunner) Attach(app Application) (err error) {
 }
 
 func (r *CliRunner) Run() (err error) {
-	if len(os.Args) < 2 {
+	if len(r.args) < 1 {
+		fmt.Println("Not enough arguments")
 		r.help()
 		return
 	}
 
-	name := os.Args[1]
+	name := r.args[0]
 
 	// 2. Find command in the bus
 	command, err := r.bus.Find(name)
 
 	if err != nil {
+		fmt.Println("Cannot find command: %s (%v)", name, err)
 		r.help()
 		return
 	}
@@ -334,11 +359,10 @@ func (r *CliRunner) Run() (err error) {
 	// 3. Run command initializations.
 	command.Boot(flagSet)
 
-	flagSet.Parse(os.Args[2:])
+	flagSet.Parse(r.args[1:])
 
 	// 4. Run the command.
-	command.Run(r.app, flag.Args())
-	return
+	return command.Run(r.app, flag.Args())
 }
 
 func (r *CliRunner) Shutdown(timeout time.Duration) error {
@@ -575,9 +599,10 @@ func (r *SpexRunner) Run() (err error) {
 func (r *SpexRunner) wrap(processor Processor) sps.ProcessorFunc {
 	return func(ctx context.Context, request, response interface{}) (code uint32) {
 		ctx = context.WithValue(ctx, CtxLogger, sps.WithRequestInfo(ctx, splog.Log))
-		ctx = r.app.MakeContext(processor, ctx)
+		ctx = r.app.MakeContext(ctx, processor)
 
-		return uint32(r.app.Execute(ctx, processor, request, response))
+		c, ctx := r.app.Execute(ctx, processor, request, response)
+		return uint32(c)
 	}
 }
 

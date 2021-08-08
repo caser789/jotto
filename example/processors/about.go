@@ -1,26 +1,26 @@
 package processors
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/caser789/jotto/example/common"
-	pb "github.com/caser789/jotto/example/protocol"
-	"github.com/caser789/jotto/jotto"
+	"git.garena.com/duanzy/motto/motto"
+	"git.garena.com/duanzy/motto/sample/common"
+	pb "git.garena.com/duanzy/motto/sample/protocol"
 	"github.com/gogo/protobuf/proto"
 )
 
-func About(app motto.Application, c motto.Context) {
-	context := common.Ctx(c)    // The custom context we defined in this application
-	mottoCtx := context.Motto() // The Motto base context
+func About(ctx context.Context, app motto.Application, request, response interface{}) (int32, context.Context) {
+	orm := common.GetContextOrm(ctx)
 
 	// Example: access ORM from the custom context.
 	quote := &pb.Quote{
 		Id: proto.Int64(1),
 	}
-	context.Orm.Get(quote)
+	orm.Get(quote)
 	fmt.Println(quote)
 
-	reply := mottoCtx.Reply.(*pb.RespAbout)
+	reply := response.(*pb.RespAbout)
 
 	reply.About = proto.String(
 		fmt.Sprintf(
@@ -30,5 +30,5 @@ func About(app motto.Application, c motto.Context) {
 			quote.GetAuthor(),
 		),
 	)
-	mottoCtx.ReplyKind = uint32(pb.MSG_KIND_RESP_ABOUT)
+	return int32(pb.MSG_KIND_RESP_ABOUT), ctx
 }

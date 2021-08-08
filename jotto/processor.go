@@ -7,7 +7,7 @@ import (
 )
 
 // ProcessorHandler is the basic logic unit of a Motto app.
-type ProcessorHandler func(ctx context.Context, app Application, request, response interface{}) int32
+type ProcessorHandler func(ctx context.Context, app Application, request, response interface{}) (int32, context.Context)
 
 // Processor specifies the logic (Handler) and middlewares (Middlewares) to be executed as a whole, as well as the input (Message) and output (Reply) formats.
 // Applications can implement their own processor representations.

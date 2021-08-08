@@ -36,4 +36,7 @@ import (
 // * The outmost middleware is called first, but it will be the last to return;
 // * A middleware can skip the rest of the middlewares and the main logic by returning early (before calling `next`)
 // * When `next` returns, the main logic is either executed, or skipped.
-type Middleware func(ctx context.Context, app Application, request, response interface{}, next func(context.Context) int32) int32
+type Middleware func(ctx context.Context, app Application, request, response interface{}, next MiddlewareChainer) (int32, context.Context)
+
+// MiddlewareChainer is a function that chains two middlewares together.
+type MiddlewareChainer func(context.Context) (code int32, ctx context.Context)

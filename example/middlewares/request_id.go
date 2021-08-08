@@ -1,20 +1,20 @@
 package middlewares
 
 import (
+	"context"
 	"reflect"
 
-	"github.com/caser789/jotto/jotto"
+	"git.garena.com/duanzy/motto/motto"
 )
 
-func RequestId(app motto.Application, context motto.Context, next func(motto.Context) error) (err error) {
-	ctx := context.Motto()
-	msg := reflect.ValueOf(ctx.Message)
+func RequestId(ctx context.Context, app motto.Application, request, response interface{}, next motto.MiddlewareChainer) (int32, context.Context) {
+	msg := reflect.ValueOf(request)
 	f := reflect.Indirect(msg).FieldByName("RequestId")
 
-	next(context)
+	code, ctx := next(ctx)
 
-	reply := reflect.ValueOf(ctx.Reply)
+	reply := reflect.ValueOf(response)
 	reflect.Indirect(reply).FieldByName("RequestId").Set(f)
 
-	return
+	return code, ctx
 }

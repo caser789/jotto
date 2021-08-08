@@ -8,10 +8,20 @@ import (
 	"github.com/go-redis/redis"
 )
 
+// CacheDriver - interface for Motto cache drivers
 type CacheDriver interface {
 	Get(key string) (value string, err error)
+	// GetVia - get the `key` from cache, if not set, call `handler` to
+	// get the value and put it into the cache afterwards.
+	GetVia(key string, handler func() (value string, expiration time.Duration, err error)) (string, error)
 	Set(key, value string, expiration time.Duration) error
 	Has(key string) (bool, error)
+	Del(keys ...string) (bool, error)
+	Flush() (bool, error)
+	// Guard - guard the execution of the `handler` function with a lock
+	// under the hood, check if the `key` is set in cache, if yes, `handler`
+	// will not be executed; otherwise, set the key and execute `handler`.
+	Guard(key string, expiration time.Duration, handler func() error) error
 }
 
 // RedisDriver implements both the CacheDriver and QueueDriver interface
@@ -21,6 +31,7 @@ type RedisDriver struct {
 	client   *redis.Client
 }
 
+// NewRedisDriver - create a Redis driver
 func NewRedisDriver(name string, settings *RedisSettings) *RedisDriver {
 	client := redis.NewClient(&redis.Options{
 		Addr:         settings.Address,
@@ -40,20 +51,73 @@ func NewRedisDriver(name string, settings *RedisSettings) *RedisDriver {
 
 /* CacheDriver */
 
+// Get - retrieve `key` from Redis
 func (rd *RedisDriver) Get(key string) (value string, err error) {
 	return rd.client.Get(key).Result()
 }
 
+// GetVia - retrieve `key` from Redis
+func (rd *RedisDriver) GetVia(key string, handler func() (string, time.Duration, error)) (value string, err error) {
+	value, err = rd.client.Get(key).Result()
+
+	if err != nil && err != redis.Nil {
+		return "", err
+	}
+
+	value, expiration, err := handler()
+
+	if err != nil {
+		return "", err
+	}
+
+	return value, rd.Set(key, value, expiration)
+}
+
+// Set - put `key` into Redis
 func (rd *RedisDriver) Set(key string, value string, expiration time.Duration) (err error) {
 	_, err = rd.client.Set(key, value, expiration).Result()
 
 	return
 }
 
+// Has - check if `key` exists in Redis
 func (rd *RedisDriver) Has(key string) (bool, error) {
 	err := rd.client.Get(key).Err()
 
 	return err == nil, err
+}
+
+// Del - delete `keys` from Redis
+func (rd *RedisDriver) Del(keys ...string) (bool, error) {
+	err := rd.client.Del(keys...).Err()
+
+	return err == nil, err
+}
+
+// Flush - delete `keys` in the currently selected DB from Redis
+func (rd *RedisDriver) Flush() (bool, error) {
+	err := rd.client.FlushDB().Err()
+
+	return err == nil, err
+}
+
+// Guard - guard the execution of `handler` with a lock
+func (rd *RedisDriver) Guard(key string, expiration time.Duration, handler func() error) (err error) {
+	acquired, err := rd.client.SetNX(key, "guarded", expiration).Result()
+
+	if err != nil {
+		return
+	}
+
+	if !acquired {
+		return fmt.Errorf("acquiring lock failed: %s", key)
+	}
+
+	defer func() {
+		rd.client.Del(key)
+	}()
+
+	return handler()
 }
 
 /* QueueDriver */
@@ -229,6 +293,7 @@ func (rd *RedisDriver) Truncate(queue string) (err error) {
 	return
 }
 
+// Stats - get the stats of the queue
 func (rd *RedisDriver) Stats(queue string) (stats *QueueStats, err error) {
 	stats = &QueueStats{}
 
@@ -317,22 +382,47 @@ func (rd *RedisDriver) key(queue string, segment string) string {
 
 /* Null cache driver */
 
+// NewNullDriver - creates a null cache driver
 func NewNullDriver(name string) *NullDriver {
 	return &NullDriver{name: name}
 }
 
+// NullDriver - a null cache driver
 type NullDriver struct {
 	name string
 }
 
+// Get - get key
 func (nd *NullDriver) Get(key string) (value string, err error) {
 	return "", fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)
 }
 
+// Set - set key
 func (nd *NullDriver) Set(key string, value string, expiration time.Duration) error {
 	return fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)
 }
 
+// Has - check existence
 func (nd *NullDriver) Has(key string) (bool, error) {
 	return false, fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)
+}
+
+// Del - delete key
+func (nd *NullDriver) Del(keys ...string) (bool, error) {
+	return false, fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)
+}
+
+// Flush - flush db
+func (nd *NullDriver) Flush() (bool, error) {
+	return false, fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)
+}
+
+// GetVia - get from cache otherwise set via `handler`
+func (nd *NullDriver) GetVia(key string, handler func() (value string, expiration time.Duration, err error)) (string, error) {
+	return "", fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)
+}
+
+// Guard - guard execution of `hander` with a lock
+func (nd *NullDriver) Guard(key string, expiration time.Duration, handler func() error) error {
+	return fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)
 }

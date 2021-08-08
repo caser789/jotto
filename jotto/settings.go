@@ -6,6 +6,24 @@ type Configuration interface {
 	Load() error
 }
 
+func NewDefaultSettings() Configuration {
+	return &DefaultSettings{
+		settings: &Settings{},
+	}
+}
+
+type DefaultSettings struct {
+	settings *Settings
+}
+
+func (ds *DefaultSettings) Motto() *Settings {
+	return ds.settings
+}
+
+func (ds *DefaultSettings) Load() error {
+	return nil
+}
+
 type Settings struct {
 	Protocol string `json:"protocol" xml:"Protocol"`
 	Address  string `json:"address" xml:"Address"`
@@ -23,14 +41,14 @@ type CacheSettings struct {
 
 type QueueSettings struct {
 	Name   string         `json:"name" xml:"Name"`
-	Driver string         `json:"driver" xml:"Driver"`
 	Queues []string       `json:"queues" xml:"Queues>Name,omitempty"`
+	Driver string         `json:"driver" xml:"Driver"`
 	Redis  *RedisSettings `json:"redis,omitempty" xml:"Redis,omitempty"`
 }
 
 type RedisSettings struct {
 	Address      string `json:"address" xml:"Address"`
-	Database     int    `json:"database" xml:"database"`
+	Database     int    `json:"database" xml:"Database"`
 	Password     string `json:"password,omitempty" xml:"Password,omitempty"`
 	DialTimeout  int    `json:"dial-timeout,omitempty" xml:"DialTimeout,omitempty"`
 	ReadTimeout  int    `json:"read-timeout,omitempty" xml:"ReadTimeout,omitempty"`

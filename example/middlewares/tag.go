@@ -1,17 +1,19 @@
 package middlewares
 
 import (
-	"github.com/caser789/jotto/example/common"
-	"github.com/caser789/jotto/jotto"
+	"context"
+
+	"git.garena.com/duanzy/motto/motto"
+	"git.garena.com/duanzy/motto/sample/common"
 )
 
-func Tag(app motto.Application, context motto.Context, next func(motto.Context) error) (err error) {
-	ctx := context.Motto()
+func Tag(ctx context.Context, app motto.Application, request, response interface{}, next motto.MiddlewareChainer) (int32, context.Context) {
+	httpResponse := motto.GetHTTPResponse(ctx)
 
-	if app.Protocol() == motto.HTTP {
-		ctx.ResponseWritter.Header().Set("X-APP-COUNTRY", common.Cfg(app).Country)
-		ctx.ResponseWritter.Header().Set("X-APP-NAME", "Upper - Powered by Motto")
+	if httpResponse != nil {
+		httpResponse.Header().Set("X-APP-COUNTRY", common.Cfg(app).Country)
+		httpResponse.Header().Set("X-APP-NAME", "Upper - Powered by Motto")
 	}
 
-	return next(context)
+	return next(ctx)
 }

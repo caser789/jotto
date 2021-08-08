@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 
 	"git.garena.com/common/gocommon"
@@ -50,7 +51,7 @@ func Terminate(payloads ...interface{}) {
 	fmt.Println("Application is terminating")
 }
 
-func ContextFactory(processor motto.Processor, ctx *motto.BaseContext) motto.Context {
+func ContextFactory(ctx context.Context, processor motto.Processor) context.Context {
 	p := processor.(*Processor)
 
 	var orm *goorm.Orm
@@ -59,8 +60,5 @@ func ContextFactory(processor motto.Processor, ctx *motto.BaseContext) motto.Con
 		orm = goorm.NewOrmWithFlag(p.Orm.Database, p.Orm.Flag)
 	}
 
-	return &Context{
-		MottoCtx: ctx,
-		Orm:      orm,
-	}
+	return context.WithValue(ctx, CtxOrm, orm)
 }

@@ -23,16 +23,16 @@ func ProcessTestJob(Q *motto.Queue, job *motto.Job, app motto.Application, logge
 	json.Unmarshal([]byte(job.Payload), author)
 
 	if job.Attempts < 3 {
-		logger.Error("Job attempts (%d) < 3, fail", job.Attempts)
+		logger.Errorf("Job attempts (%d) < 3, fail", job.Attempts)
 		return errors.New("fail")
 	}
 
-	logger.Data("Author: %+v\n", author)
+	logger.Dataf("Author: %+v\n", author)
 
 	return
 }
 
 func LongRunningJob(Q *motto.Queue, job *motto.Job, app motto.Application, logger motto.Logger) (err error) {
-	logger.Data("Processing %s", job.TraceID)
+	logger.Dataf("Processing %s", job.TraceID)
 	return
 }

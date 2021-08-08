@@ -17,7 +17,6 @@ type Inspire struct {
 	motto.BaseCommand
 	number *int
 	quotes []*Quote
-	cmd    *flag.FlagSet
 }
 
 func NewInspire() *Inspire {
@@ -45,9 +44,8 @@ func (i *Inspire) Description() string {
 	return "Inspire is a command for inspiration."
 }
 
-func (i *Inspire) Boot() (err error) {
-	i.cmd = flag.NewFlagSet(i.Name(), flag.ExitOnError)
-	i.number = i.cmd.Int("number", 1, "Which inspirational quote to display (1-10).")
+func (i *Inspire) Boot(flagSet *flag.FlagSet) (err error) {
+	i.number = flagSet.Int("number", 1, "Which inspirational quote to display (1-10).")
 
 	return
 }

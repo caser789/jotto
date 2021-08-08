@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
@@ -9,6 +10,22 @@ import (
 	"git.garena.com/lixh/goorm"
 	"github.com/gogo/protobuf/proto"
 )
+
+type AppContextKey int
+
+const (
+	CtxOrm AppContextKey = iota
+)
+
+func GetContextOrm(ctx context.Context) (orm *goorm.Orm) {
+	orm, ok := ctx.Value(CtxOrm).(*goorm.Orm)
+
+	if !ok {
+		return nil
+	}
+
+	return
+}
 
 /* Custom configuration struct */
 
@@ -51,21 +68,6 @@ type Settings struct {
 
 func Cfg(app motto.Application) *Configuration {
 	return app.Settings().(*Configuration)
-}
-
-/* Custom context struct */
-
-type Context struct {
-	MottoCtx *motto.BaseContext
-	Orm      *goorm.Orm
-}
-
-func (ctx *Context) Motto() *motto.BaseContext {
-	return ctx.MottoCtx
-}
-
-func Ctx(ctx motto.Context) *Context {
-	return ctx.(*Context)
 }
 
 /* Custom processor */

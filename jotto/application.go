@@ -15,7 +15,7 @@ type Application interface {
 	Run() error
 	Reload() error
 	Shutdown(timeout time.Duration) error
-	Execute(ctx context.Context, processor Processor, request, response interface{}) int32
+	Execute(ctx context.Context, processor Processor, request, response interface{}) (int32, context.Context)
 
 	Protocol() string
 	Address() string
@@ -27,7 +27,7 @@ type Application interface {
 	Settings() Configuration
 
 	SetContextFactory(ContextFactory)
-	MakeContext(Processor, context.Context) context.Context
+	MakeContext(context.Context, Processor) context.Context
 
 	SetLoggerFactory(LoggerFactory)
 	MakeLogger(LoggerContext) Logger
@@ -88,12 +88,15 @@ type BaseApplication struct {
 
 // NewApplication creates a new application.
 func NewApplication(settings Configuration, routes map[Route]Processor, jobs map[int]QueueProcessor, runner Runner) Application {
+	if settings == nil {
+		settings = NewDefaultSettings()
+	}
 	app := &BaseApplication{
 		eventBus:       NewEventBus(),
 		routes:         routes,
 		registry:       make(map[string]interface{}),
 		settings:       settings,
-		contextFactory: func(p Processor, c context.Context) context.Context { return c },
+		contextFactory: func(c context.Context, p Processor) context.Context { return c },
 		loggerFactory:  func(a Application, c LoggerContext) Logger { return NewStdoutLogger(c) },
 		cache:          make(map[string]CacheDriver),
 		queue:          make(map[string]*Queue),
@@ -159,8 +162,8 @@ func (app *BaseApplication) SetContextFactory(factory ContextFactory) {
 }
 
 // MakeContext creates an execution context using the context factory
-func (app *BaseApplication) MakeContext(processor Processor, ctx context.Context) context.Context {
-	return app.contextFactory(processor, ctx)
+func (app *BaseApplication) MakeContext(ctx context.Context, processor Processor) context.Context {
+	return app.contextFactory(ctx, processor)
 }
 
 // SetLoggerFactory sets a custom logger factory function
@@ -176,7 +179,11 @@ func (app *BaseApplication) MakeLogger(c LoggerContext) Logger {
 // Boot initializes the application
 func (app *BaseApplication) Boot() (err error) {
 	// Load configuration
-	app.settings.Load()
+	err = app.settings.Load()
+
+	if err != nil {
+		return
+	}
 
 	app.protocol = app.settings.Motto().Protocol
 	app.address = app.settings.Motto().Address
@@ -210,17 +217,17 @@ func (app *BaseApplication) Shutdown(timeout time.Duration) (err error) {
 }
 
 // Execute executes a processor
-func (app *BaseApplication) Execute(ctx context.Context, processor Processor, request, response interface{}) int32 {
+func (app *BaseApplication) Execute(ctx context.Context, processor Processor, request, response interface{}) (int32, context.Context) {
 	return app.ExecuteProcessor(ctx, processor, processor.Middlewares(), request, response)
 }
 
 // ExecuteProcessor executes a processor
-func (app *BaseApplication) ExecuteProcessor(ctx context.Context, processor Processor, mids []Middleware, request, response interface{}) int32 {
+func (app *BaseApplication) ExecuteProcessor(ctx context.Context, processor Processor, mids []Middleware, request, response interface{}) (int32, context.Context) {
 	if len(mids) == 0 {
 		return processor.Handler()(ctx, app, request, response)
 	}
 
-	return mids[0](ctx, app, request, response, func(c context.Context) int32 {
+	return mids[0](ctx, app, request, response, func(c context.Context) (int32, context.Context) {
 		return app.ExecuteProcessor(c, processor, mids[1:], request, response)
 	})
 }
@@ -257,8 +264,6 @@ func (app *BaseApplication) GetListener() (listener net.Listener, err error) {
 	} else {
 		app.listener, err = net.Listen("tcp", app.address)
 	}
-
-	fmt.Println("listener is:", app.listener, err)
 
 	return app.listener, err
 }

@@ -1,26 +1,36 @@
 package middlewares
 
 import (
-	"fmt"
+	"context"
 
 	"git.garena.com/duanzy/motto/sample/common"
 
 	"git.garena.com/duanzy/motto/motto"
 )
 
-func Orm(app motto.Application, context motto.Context, next func(motto.Context) error) (err error) {
-	ctx := common.Ctx(context)
+func Orm(ctx context.Context, app motto.Application, request, response interface{}, next motto.MiddlewareChainer) (int32, context.Context) {
+	orm := common.GetContextOrm(ctx)
 
-	if ctx.Orm != nil && ctx.Orm.NeedTrx() {
-		ctx.Orm.Begin()
+	if orm == nil {
+		return next(ctx)
 	}
 
-	err = next(context)
+	logger := motto.GetLogger(ctx)
 
-	if ctx.Orm != nil && ctx.Orm.NeedTrx() {
-		if err = ctx.Orm.Commit(); err != nil {
-			fmt.Println("Txn commit error", err)
+	if orm != nil && orm.NeedTrx() {
+		orm.Begin()
+	}
+
+	code, ctx := next(ctx)
+
+	if orm != nil && orm.NeedTrx() {
+		if code == 0 {
+			if err := orm.Commit(); err != nil {
+				logger.Errorf("Txn commit error", err)
+			}
+		} else {
+			orm.Rollback()
 		}
 	}
-	return
+	return code, ctx
 }

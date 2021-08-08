@@ -85,7 +85,7 @@ type QueueDriver interface {
 	Fail(queue string, job *Job) error
 
 	// Requeue all failed jobs on the queue
-	RequeueAllFailed(queue string) error
+	RequeueAllFailed(queue string) ([]string, error)
 
 	// Clear the queue (All data will be lost)
 	Truncate(queue string) error
@@ -168,7 +168,7 @@ func (q *Queue) Fail(job *Job) error {
 	return q.driver.Fail(q.name, job)
 }
 
-func (q *Queue) RequeueAllFailed() error {
+func (q *Queue) RequeueAllFailed() ([]string, error) {
 	return q.driver.RequeueAllFailed(q.name)
 }
 

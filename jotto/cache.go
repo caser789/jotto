@@ -297,33 +297,65 @@ func (rd *RedisDriver) Fail(queue string, job *Job) (err error) {
 	return
 }
 
+// get - get the Job object by its uuid
+func (rd *RedisDriver) get(queue string, id string) (job *Job, err error) {
+	var serialized string
+	if serialized, err = rd.client.HGet(rd.key(queue, "backlog"), id).Result(); err != nil {
+		return nil, err
+	}
+	job = &Job{}
+	err = json.Unmarshal([]byte(serialized), job)
+	return job, err
+}
+
 // RequeueAllFailed - requeue all failed jobs (move jobs from `failure` into `pending`)
-func (rd *RedisDriver) RequeueAllFailed(queue string) (err error) {
+func (rd *RedisDriver) RequeueAllFailed(queue string) (jobIDs []string, err error) {
+	var (
+		job *Job
+		ids []string
+	)
+	if ids, err = rd.client.LRange(rd.key(queue, "failure"), 0, -1).Result(); err != nil {
+		return nil, err
+	}
+
+	for _, id := range ids {
+		if job, err = rd.get(queue, id); err != nil {
+			if err == redis.Nil {
+				rd.client.LRem(rd.key(queue, "failure"), 0, id)
+			}
+		} else {
+			if err = rd.retry(queue, job); err == nil {
+				jobIDs = append(jobIDs, job.TraceID)
+			}
+		}
+	}
+	return jobIDs, nil
+}
+
+// retry - move a failed job from the `failure` list to `pending`.
+//         the attempt count of that job will be reset to zero.
+func (rd *RedisDriver) retry(queue string, job *Job) (err error) {
+	// Reset attempt count
+	job.Attempts = 0
+
 	/*
-	 * KEYS[1] = failure
-	 * KEYS[2] = backlog
-	 * ARGV[1] = pending
+	 * KEYS[1] = backlog
+	 * KEYS[2] = failure
+	 * KEYS[3] = pending
+	 * ARGV[1] = uuid
+	 * ARGV[2] = payload
 	 */
 	script := redis.NewScript(`
-		local failures = redis.call("lrange", KEYS[1], 0, -1)
-		local pendings = redis.call('llen', ARGV[1])
-
-		for _, uuid in ipairs(failures) do
-			if redis.call('hget', KEYS[2], uuid) then
-				local count = redis.call('lpush', ARGV[1], uuid)
-				if count > pendings then
-					pendings = count
-					redis.call('lrem', KEYS[1], 0, uuid)
-				end
-			else
-				redis.call('lrem', KEYS[1], 0, uuid)
-			end
-		end
-
-		return 1
+		redis.call('hset', KEYS[1], ARGV[1], ARGV[2])
+		redis.call('lrem', KEYS[2], 0, ARGV[1])
+		return redis.call('lpush', KEYS[3], ARGV[1])
 	`)
 
-	_, err = script.Run(rd.client, []string{rd.key(queue, "failure"), rd.key(queue, "backlog")}, rd.key(queue, "pending")).Result()
+	_, err = script.Run(rd.client, []string{
+		rd.key(queue, "backlog"),
+		rd.key(queue, "failure"),
+		rd.key(queue, "pending"),
+	}, job.TraceID, job.Serialize()).Result()
 	return
 }
 

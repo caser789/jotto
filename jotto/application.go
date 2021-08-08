@@ -22,8 +22,6 @@ type Application interface {
 	Routes() map[Route]Processor
 	Jobs() map[int]QueueProcessor
 
-	Get(string) interface{}
-	Set(string, interface{})
 	Settings() Configuration
 
 	SetContextFactory(ContextFactory)
@@ -46,6 +44,12 @@ type Application interface {
 
 // Factory - a factory that
 type Factory func(ctx context.Context, app Application) (interface{}, error)
+
+// RegistryRecord - a registry record of the IoC container
+type RegistryRecord struct {
+	factory   Factory
+	singleton bool
+}
 
 const (
 	// HTTP - the HTTP protocol
@@ -81,13 +85,13 @@ type BaseApplication struct {
 	address        string
 	eventBus       *EventBus
 	routes         map[Route]Processor
-	registry       map[string]interface{}
 	settings       Configuration
 	contextFactory ContextFactory
 	loggerFactory  LoggerFactory
 
 	// An IoC container
-	container map[interface{}]Factory
+	registry  map[interface{}]*RegistryRecord
+	container map[interface{}]interface{}
 
 	cache map[string]CacheDriver
 	queue map[string]*Queue
@@ -105,13 +109,14 @@ func NewApplication(settings Configuration, routes map[Route]Processor, jobs map
 	app := &BaseApplication{
 		eventBus:       NewEventBus(),
 		routes:         routes,
-		registry:       make(map[string]interface{}),
 		settings:       settings,
 		contextFactory: func(c context.Context, p Processor) context.Context { return c },
 		loggerFactory:  func(a Application, c LoggerContext) Logger { return NewStdoutLogger(c) },
 		cache:          make(map[string]CacheDriver),
 		queue:          make(map[string]*Queue),
 		jobs:           jobs,
+		registry:       make(map[interface{}]*RegistryRecord),
+		container:      make(map[interface{}]interface{}),
 	}
 
 	if runner != nil {
@@ -149,19 +154,6 @@ func (app *BaseApplication) On(event Event, listener Listener) {
 // Fire fires an event with payload
 func (app *BaseApplication) Fire(event Event, payload ...interface{}) {
 	app.eventBus.Fire(event, payload...)
-}
-
-func (app *BaseApplication) Get(key string) (value interface{}) {
-	value, ok := app.registry[key]
-	if !ok {
-		return nil
-	}
-	return value
-}
-
-// Set puts `value` into the application's registry under `key`
-func (app *BaseApplication) Set(key string, value interface{}) {
-	app.registry[key] = value
 }
 
 // Settings returns the settings of the application
@@ -287,24 +279,30 @@ func (app *BaseApplication) SetListener(listener net.Listener) {
 
 // Register - register an entry in the IoC container
 func (app *BaseApplication) Register(name interface{}, factory Factory, singleton bool) (err error) {
-	if _, ok := app.container[name]; ok {
+	if _, ok := app.registry[name]; ok {
 		return fmt.Errorf("motto: `%v` already registered", name)
 	}
 
-	app.container[name] = factory
+	app.registry[name] = &RegistryRecord{factory, singleton}
 	return nil
 }
 
 // Make - create an instance of an entry in the IoC container
 func (app *BaseApplication) Make(ctx context.Context, name interface{}) (instance interface{}, err error) {
+	defer func() {
+		app.container[name] = instance
+	}()
 	var (
-		factory Factory
-		ok      bool
+		record *RegistryRecord
+		ok     bool
 	)
-	if factory, ok = app.container[name]; ok {
+	if record, ok = app.registry[name]; !ok {
 		return nil, fmt.Errorf("motto: `%v` is not registered", name)
 	}
-	return factory(ctx, app)
+	if instance, ok = app.container[name]; ok && record.singleton {
+		return instance, nil
+	}
+	return record.factory(ctx, app)
 }
 
 // Initialize external services such as cache, queue

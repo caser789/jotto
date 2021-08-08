@@ -53,6 +53,7 @@ type RedisSettings struct {
 	DialTimeout  int    `json:"dial-timeout,omitempty" xml:"DialTimeout,omitempty"`
 	ReadTimeout  int    `json:"read-timeout,omitempty" xml:"ReadTimeout,omitempty"`
 	WriteTimeout int    `json:"write-timeout,omitempty" xml:"WriteTimeout,omitempty"`
+	Blocking     bool   `json:"blocking,omitempty" xml:"Blocking,omitempty"`
 }
 
 type MemcachedSettings struct {

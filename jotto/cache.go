@@ -198,20 +198,24 @@ func (rd *RedisDriver) Dequeue(queue string) (job *Job, err error) {
 	 * 1. BRPOPLPUSH queue:pending queue:working
 	 * 2. Fetch jobs from queue:backlog
 	 */
-	jobID, err := rd.client.BRPopLPush(rd.key(queue, "pending"), rd.key(queue, "working"), time.Duration(rd.settings.ReadTimeout)*time.Second).Result()
+	var (
+		jobID, serialized string
+	)
+	if rd.settings.Blocking {
+		jobID, err = rd.client.BRPopLPush(rd.key(queue, "pending"), rd.key(queue, "working"), time.Duration(rd.settings.ReadTimeout)*time.Second).Result()
+	} else {
+		jobID, err = rd.client.RPopLPush(rd.key(queue, "pending"), rd.key(queue, "working")).Result()
+	}
 
 	if err != nil {
 		return
 	}
 
-	serialized, err := rd.client.HGet(rd.key(queue, "backlog"), jobID).Result()
-
-	if err != nil {
+	if serialized, err = rd.client.HGet(rd.key(queue, "backlog"), jobID).Result(); err != nil {
 		return
 	}
 
 	job = &Job{}
-
 	err = json.Unmarshal([]byte(serialized), job)
 
 	return
@@ -431,9 +435,9 @@ func (nd *NullDriver) Flush() (bool, error) {
 	return false, fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)
 }
 
-// GetVia - get from cache otherwise set via `handler`
-func (nd *NullDriver) GetVia(key string, handler func() (value string, expiration time.Duration, err error)) (string, error) {
-	return "", fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)
+// Incr - increase by 1
+func (nd *NullDriver) Incr(key string) (int64, error) {
+	return 0, fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)
 }
 
 // Expire - set the expire time of `key`
@@ -441,9 +445,9 @@ func (nd *NullDriver) Expire(key string, expiry time.Duration) (bool, error) {
 	return false, fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)
 }
 
-// Incr - increase by 1
-func (nd *NullDriver) Incr(key string) (int64, error) {
-	return 0, fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)
+// GetVia - get from cache otherwise set via `handler`
+func (nd *NullDriver) GetVia(key string, handler func() (value string, expiration time.Duration, err error)) (string, error) {
+	return "", fmt.Errorf("Cannot find settings of cache named `%s`", nd.name)
 }
 
 // Guard - guard execution of `hander` with a lock
